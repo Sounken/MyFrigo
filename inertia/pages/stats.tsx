@@ -30,6 +30,19 @@ export default function StatsPage({ stats }: { stats: WasteStats }) {
           <span className="text-neutral-500">→</span>
         </Link>
 
+        <Link
+          href="/settings"
+          className="flex items-center justify-between rounded-2xl border border-neutral-800 bg-neutral-900 px-4 py-4 active:bg-neutral-800"
+        >
+          <span>
+            <span className="block font-semibold">Réglages & sauvegarde</span>
+            <span className="mt-0.5 block text-xs text-neutral-500">
+              Sécurité, notifications et export des données
+            </span>
+          </span>
+          <span className="text-neutral-500">→</span>
+        </Link>
+
         <section className="rounded-2xl border border-neutral-800 bg-neutral-900 p-4">
           <div className="mb-4 flex items-baseline justify-between">
             <h2 className="font-semibold">Les plus jetés</h2>

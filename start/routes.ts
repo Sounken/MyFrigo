@@ -18,6 +18,7 @@ const PushController = () => import('#controllers/push_controller')
 const StatsController = () => import('#controllers/stats_controller')
 const HistoryController = () => import('#controllers/history_controller')
 const ShoppingController = () => import('#controllers/shopping_controller')
+const SettingsController = () => import('#controllers/settings_controller')
 
 /** Unauthenticated on purpose: Coolify polls this to decide if the container is up. */
 router.get('/health', ({ response }) => response.ok({ status: 'ok' }))
@@ -33,6 +34,8 @@ router
     router.get('/stats', [StatsController, 'index']).as('stats')
     router.get('/history', [HistoryController, 'index']).as('history')
     router.get('/shopping', [ShoppingController, 'index']).as('shopping')
+    router.get('/settings', [SettingsController, 'index']).as('settings')
+    router.get('/api/export', [SettingsController, 'export']).as('export')
 
     router
       .group(() => {

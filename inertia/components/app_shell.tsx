@@ -39,7 +39,8 @@ export default function AppShell({ title, action, children }: Props) {
 
 function NavLink({ href, label, icon }: { href: string; label: string; icon: string }) {
   const pathname = typeof window !== 'undefined' ? window.location.pathname : ''
-  const active = pathname === href || (href === '/stats' && pathname === '/history')
+  const active =
+    pathname === href || (href === '/stats' && ['/history', '/settings'].includes(pathname))
 
   return (
     <Link
