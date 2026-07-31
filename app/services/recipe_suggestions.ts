@@ -24,8 +24,25 @@ export type RecipeSuggestion = {
   urgencyScore: number
 }
 
+type FoodFamily =
+  | 'egg'
+  | 'cheese'
+  | 'meat'
+  | 'fish'
+  | 'tofu'
+  | 'vegetable'
+  | 'salad_leaf'
+  | 'cooking_green'
+  | 'potato'
+  | 'dairy'
+  | 'pasta'
+  | 'sauce'
+  | 'grain'
+  | 'fruit'
+  | 'sweet_spread'
+
 type IngredientSlot = {
-  keywords: string[]
+  families: FoodFamily[]
   required?: boolean
 }
 
@@ -40,10 +57,10 @@ const TEMPLATES: RecipeTemplate[] = [
     emoji: '🍳',
     description: 'Une base rapide qui accepte très bien fromage, légumes et restes de viande.',
     slots: [
-      { keywords: ['oeuf', 'egg'], required: true },
-      { keywords: ['fromage', 'cheese', 'emmental', 'comte', 'mozzarella'] },
-      { keywords: ['jambon', 'ham', 'lardon', 'poulet'] },
-      { keywords: ['epinard', 'champignon', 'tomate', 'courgette', 'poivron'] },
+      { families: ['egg'], required: true },
+      { families: ['cheese'] },
+      { families: ['meat', 'fish', 'tofu'] },
+      { families: ['vegetable', 'cooking_green'] },
     ],
     complements: ['sel', 'poivre', 'un peu d’huile'],
     steps: [
@@ -58,23 +75,10 @@ const TEMPLATES: RecipeTemplate[] = [
     emoji: '🥣',
     description: 'Idéale pour utiliser plusieurs légumes en une fois, même un peu fatigués.',
     slots: [
-      {
-        keywords: [
-          'carotte',
-          'courgette',
-          'poireau',
-          'potiron',
-          'courge',
-          'brocoli',
-          'chou',
-          'legume',
-          'vegetable',
-        ],
-        required: true,
-      },
-      { keywords: ['pomme de terre', 'potato', 'patate'] },
-      { keywords: ['creme', 'lait', 'cream', 'milk'] },
-      { keywords: ['oignon', 'ail'] },
+      { families: ['vegetable', 'cooking_green'], required: true },
+      { families: ['potato'] },
+      { families: ['dairy'] },
+      { families: ['vegetable'] },
     ],
     complements: ['eau ou bouillon', 'sel', 'poivre'],
     steps: [
@@ -89,13 +93,10 @@ const TEMPLATES: RecipeTemplate[] = [
     emoji: '🧀',
     description: 'Un plat généreux pour réunir légumes, crème et fromage proches de leur date.',
     slots: [
-      {
-        keywords: ['pomme de terre', 'courgette', 'epinard', 'brocoli', 'chou fleur', 'legume'],
-        required: true,
-      },
-      { keywords: ['fromage', 'cheese', 'emmental', 'comte', 'mozzarella'], required: true },
-      { keywords: ['creme', 'lait', 'cream', 'milk'] },
-      { keywords: ['jambon', 'lardon', 'poulet'] },
+      { families: ['potato', 'vegetable', 'cooking_green'], required: true },
+      { families: ['cheese'], required: true },
+      { families: ['dairy'] },
+      { families: ['meat', 'fish', 'tofu'] },
     ],
     complements: ['sel', 'poivre', 'muscade'],
     steps: [
@@ -110,13 +111,10 @@ const TEMPLATES: RecipeTemplate[] = [
     emoji: '🥗',
     description: 'Fraîche et modulable, à composer d’abord avec les produits les plus urgents.',
     slots: [
-      {
-        keywords: ['salade', 'lettuce', 'tomate', 'concombre', 'avocat', 'carotte'],
-        required: true,
-      },
-      { keywords: ['poulet', 'jambon', 'thon', 'saumon', 'tofu'] },
-      { keywords: ['fromage', 'feta', 'mozzarella', 'chevre'] },
-      { keywords: ['oeuf', 'egg'] },
+      { families: ['salad_leaf', 'vegetable'], required: true },
+      { families: ['meat', 'fish', 'tofu'] },
+      { families: ['cheese'] },
+      { families: ['egg'] },
     ],
     complements: ['huile', 'vinaigre ou citron', 'sel', 'poivre'],
     steps: [
@@ -131,11 +129,11 @@ const TEMPLATES: RecipeTemplate[] = [
     emoji: '🍝',
     description: 'Une sauce minute pour écouler légumes, fromage ou restes de viande.',
     slots: [
-      { keywords: ['pate', 'pasta', 'spaghetti', 'tagliatelle'], required: true },
-      { keywords: ['tomate', 'sauce tomate', 'creme', 'pesto'] },
-      { keywords: ['fromage', 'parmesan', 'emmental', 'mozzarella'] },
-      { keywords: ['courgette', 'epinard', 'champignon', 'poivron', 'brocoli'] },
-      { keywords: ['poulet', 'jambon', 'lardon', 'saumon'] },
+      { families: ['pasta'], required: true },
+      { families: ['sauce', 'dairy'] },
+      { families: ['cheese'] },
+      { families: ['vegetable', 'cooking_green'] },
+      { families: ['meat', 'fish', 'tofu'] },
     ],
     complements: ['sel', 'poivre', 'un peu d’huile'],
     steps: [
@@ -149,13 +147,7 @@ const TEMPLATES: RecipeTemplate[] = [
     title: 'Smoothie ou bowl fruité',
     emoji: '🥤',
     description: 'Le réflexe express pour utiliser les fruits très mûrs et les laitages ouverts.',
-    slots: [
-      {
-        keywords: ['banane', 'pomme', 'poire', 'fraise', 'framboise', 'mangue', 'fruit'],
-        required: true,
-      },
-      { keywords: ['yaourt', 'yogurt', 'lait', 'milk', 'boisson vegetale'] },
-    ],
+    slots: [{ families: ['fruit'], required: true }, { families: ['dairy'] }],
     complements: ['quelques glaçons', 'miel (facultatif)'],
     steps: [
       'Éplucher ou équeuter les fruits et retirer les parties abîmées.',
@@ -169,13 +161,10 @@ const TEMPLATES: RecipeTemplate[] = [
     emoji: '🍲',
     description: 'Une cuisson unique et souple pour transformer les restes en vrai repas.',
     slots: [
-      {
-        keywords: ['poulet', 'boeuf', 'porc', 'saucisse', 'tofu', 'poisson'],
-        required: true,
-      },
-      { keywords: ['courgette', 'carotte', 'poivron', 'champignon', 'brocoli', 'legume'] },
-      { keywords: ['riz', 'rice', 'semoule', 'quinoa', 'pomme de terre'] },
-      { keywords: ['creme', 'sauce tomate', 'pesto'] },
+      { families: ['meat', 'fish', 'tofu'], required: true },
+      { families: ['vegetable', 'cooking_green'] },
+      { families: ['grain', 'potato'] },
+      { families: ['sauce', 'dairy'] },
     ],
     complements: ['huile', 'sel', 'poivre', 'épices au choix'],
     steps: [
@@ -194,25 +183,7 @@ export function suggestRecipes(input: RecipeInput[], limit = 5): RecipeSuggestio
     .sort((a, b) => b.urgencyScore - a.urgencyScore || b.ingredients.length - a.ingredients.length)
     .slice(0, limit)
 
-  if (suggestions.length > 0 || products.length === 0) return suggestions
-
-  const urgent = [...products].sort((a, b) => a.daysLeft - b.daysLeft).slice(0, 4)
-  return [
-    {
-      id: 'freeform',
-      title: 'Assiette anti-gaspi',
-      emoji: '✨',
-      description: 'Une proposition libre construite avec les produits à utiliser en premier.',
-      ingredients: urgent.map(asIngredient),
-      complements: ['huile ou beurre', 'sel', 'poivre', 'épices au choix'],
-      steps: [
-        'Couper les produits en portions adaptées à leur temps de cuisson.',
-        'Cuire d’abord les ingrédients fermes, puis ajouter les plus fragiles.',
-        'Assaisonner, goûter et servir sous forme de poêlée, salade ou tartine.',
-      ],
-      urgencyScore: urgent.reduce((score, item) => score + urgencyPoints(item.daysLeft), 0),
-    },
-  ]
+  return suggestions
 }
 
 function matchTemplate(template: RecipeTemplate, products: RecipeInput[]): RecipeSuggestion | null {
@@ -221,7 +192,7 @@ function matchTemplate(template: RecipeTemplate, products: RecipeInput[]): Recip
 
   for (const slot of template.slots) {
     const candidate = products
-      .filter((product) => !used.has(product.barcode) && matches(product, slot.keywords))
+      .filter((product) => !used.has(product.barcode) && matches(product, slot.families))
       .sort((a, b) => a.daysLeft - b.daysLeft)[0]
 
     if (!candidate && slot.required) return null
@@ -247,9 +218,110 @@ function matchTemplate(template: RecipeTemplate, products: RecipeInput[]): Recip
   }
 }
 
-function matches(product: RecipeInput, keywords: string[]) {
-  const haystack = normalize([product.name, ...product.categoriesTags].join(' '))
-  return keywords.some((keyword) => haystack.includes(normalize(keyword)))
+const FAMILY_TERMS: Record<FoodFamily, string[]> = {
+  egg: ['oeuf', 'oeufs', 'egg', 'eggs'],
+  cheese: [
+    'fromage',
+    'fromages',
+    'cheese',
+    'cheeses',
+    'emmental',
+    'comte',
+    'mozzarella',
+    'parmesan',
+    'feta',
+    'chevre',
+  ],
+  meat: [
+    'viande',
+    'meat',
+    'poulet',
+    'chicken',
+    'boeuf',
+    'porc',
+    'jambon',
+    'ham',
+    'lardon',
+    'saucisse',
+  ],
+  fish: ['poisson', 'fish', 'thon', 'tuna', 'saumon', 'salmon'],
+  tofu: ['tofu'],
+  vegetable: [
+    'legume',
+    'legumes',
+    'vegetable',
+    'vegetables',
+    'carotte',
+    'courgette',
+    'poireau',
+    'potiron',
+    'courge',
+    'brocoli',
+    'chou',
+    'champignon',
+    'tomate',
+    'concombre',
+    'avocat',
+    'poivron',
+    'oignon',
+    'ail',
+  ],
+  salad_leaf: ['salade', 'salades', 'lettuce', 'roquette', 'mache'],
+  cooking_green: ['epinard', 'epinards', 'spinach', 'bette', 'blette', 'kale'],
+  potato: ['pomme de terre', 'pommes de terre', 'potato', 'potatoes', 'patate', 'patates'],
+  dairy: ['lait', 'milk', 'creme', 'cream', 'yaourt', 'yaourts', 'yogurt', 'yogurts'],
+  pasta: [
+    'pates',
+    'pasta',
+    'pastas',
+    'spaghetti',
+    'spaghettis',
+    'tagliatelle',
+    'tagliatelles',
+    'macaroni',
+    'penne',
+  ],
+  sauce: ['sauce', 'sauces', 'pesto', 'coulis'],
+  grain: ['riz', 'rice', 'semoule', 'couscous', 'quinoa', 'boulgour'],
+  fruit: [
+    'fruit',
+    'fruits',
+    'banane',
+    'bananes',
+    'pomme',
+    'pommes',
+    'poire',
+    'poires',
+    'fraise',
+    'fraises',
+    'framboise',
+    'framboises',
+    'mangue',
+    'mangues',
+  ],
+  sweet_spread: ['pate a tartiner', 'pates a tartiner', 'sweet spread', 'sweet spreads'],
+}
+
+function matches(product: RecipeInput, families: FoodFamily[]) {
+  const productFamilies = classify(product)
+  return families.some((family) => productFamilies.has(family))
+}
+
+function classify(product: RecipeInput) {
+  const text = normalize([product.name, ...product.categoriesTags].join(' '))
+  const families = new Set<FoodFamily>()
+
+  for (const [family, terms] of Object.entries(FAMILY_TERMS) as [FoodFamily, string[]][]) {
+    if (terms.some((term) => containsTerm(text, term))) families.add(family)
+  }
+
+  /** "Pâte à tartiner" is a spread, never a packet of pasta. */
+  if (families.has('sweet_spread')) families.delete('pasta')
+  return families
+}
+
+function containsTerm(text: string, term: string) {
+  return ` ${text} `.includes(` ${normalize(term)} `)
 }
 
 function deduplicate(input: RecipeInput[]) {
@@ -289,4 +361,6 @@ function normalize(value: string) {
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
     .toLocaleLowerCase('fr')
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim()
 }

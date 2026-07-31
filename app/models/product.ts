@@ -5,6 +5,37 @@ import Item from '#models/item'
 
 export type ProductSource = 'off' | 'manual' | 'weighed'
 
+export type ProductNutriments = {
+  energyKcal: number | null
+  fat: number | null
+  saturatedFat: number | null
+  carbohydrates: number | null
+  sugars: number | null
+  fiber: number | null
+  proteins: number | null
+  salt: number | null
+}
+
+export type ProductNutrientLevels = Partial<
+  Record<'fat' | 'saturatedFat' | 'sugars' | 'salt', 'low' | 'moderate' | 'high'>
+>
+
+export type ProductQualityAttribute = {
+  status: 'known' | 'unknown' | 'not-applicable'
+  score: number | null
+  title: string | null
+  description: string | null
+}
+
+export type ProductQualityAttributes = {
+  nutrition: ProductQualityAttribute | null
+  nova: ProductQualityAttribute | null
+  additives: ProductQualityAttribute | null
+}
+
+const prepareJson = (value: unknown) => (value === null ? null : JSON.stringify(value))
+const consumeJson = <T>(value: string | null): T | null => (value ? (JSON.parse(value) as T) : null)
+
 export default class Product extends BaseModel {
   static primaryKey = 'barcode'
   static selfAssignPrimaryKey = true
@@ -34,10 +65,46 @@ export default class Product extends BaseModel {
   declare categoriesTags: string[]
 
   @column()
+  declare ingredientsText: string | null
+
+  @column({
+    prepare: prepareJson,
+    consume: (value: string | null) => consumeJson<string[]>(value) ?? [],
+  })
+  declare allergensTags: string[]
+
+  @column({
+    prepare: prepareJson,
+    consume: (value: string | null) => consumeJson<string[]>(value) ?? [],
+  })
+  declare additivesTags: string[]
+
+  @column({
+    prepare: prepareJson,
+    consume: (value: string | null) => consumeJson<string[]>(value) ?? [],
+  })
+  declare labelsTags: string[]
+
+  @column()
+  declare novaGroup: number | null
+
+  @column({ prepare: prepareJson, consume: consumeJson<ProductNutrientLevels> })
+  declare nutrientLevels: ProductNutrientLevels | null
+
+  @column({ prepare: prepareJson, consume: consumeJson<ProductNutriments> })
+  declare nutriments: ProductNutriments | null
+
+  @column({ prepare: prepareJson, consume: consumeJson<ProductQualityAttributes> })
+  declare qualityAttributes: ProductQualityAttributes | null
+
+  @column()
   declare source: ProductSource
 
   @column.dateTime()
   declare fetchedAt: DateTime | null
+
+  @column.dateTime()
+  declare compositionFetchedAt: DateTime | null
 
   @column.dateTime({ autoCreate: true })
   declare createdAt: DateTime

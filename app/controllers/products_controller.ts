@@ -3,12 +3,15 @@ import Item, { type ItemLocation } from '#models/item'
 import Product from '#models/product'
 import { serializeItem } from '#controllers/items_controller'
 import { estimate } from '#services/expiry_estimator'
+import { enrichComposition } from '#services/open_food_facts'
+import { calculateProductQuality } from '#services/product_quality'
 
 const LOCATIONS: ItemLocation[] = ['fridge', 'freezer', 'pantry']
 
 export default class ProductsController {
   async show({ params, inertia }: HttpContext) {
-    const product = await Product.findOrFail(params.barcode)
+    let product = await Product.findOrFail(params.barcode)
+    product = await enrichComposition(product)
 
     const stock = await Item.query()
       .where('barcode', product.barcode)
@@ -44,6 +47,17 @@ export default class ProductsController {
         imageUrl: product.imageUrl,
         nutriscore: product.nutriscore,
         source: product.source,
+        ingredientsText: product.ingredientsText,
+        allergensTags: product.allergensTags ?? [],
+        additivesTags: product.additivesTags ?? [],
+        labelsTags: product.labelsTags ?? [],
+        novaGroup: product.novaGroup,
+        nutrientLevels: product.nutrientLevels,
+        nutriments: product.nutriments,
+        quality: calculateProductQuality(product.qualityAttributes),
+        compositionAvailable: Boolean(
+          product.ingredientsText || product.nutriments || product.qualityAttributes
+        ),
       },
       stock: stock.map(serializeItem),
       recentHistory: resolved.slice(0, 12).map(serializeItem),

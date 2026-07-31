@@ -67,6 +67,40 @@ export type ProductDetails = {
   imageUrl: string | null
   nutriscore: string | null
   source: 'off' | 'manual' | 'weighed'
+  ingredientsText: string | null
+  allergensTags: string[]
+  additivesTags: string[]
+  labelsTags: string[]
+  novaGroup: number | null
+  nutrientLevels: Partial<
+    Record<'fat' | 'saturatedFat' | 'sugars' | 'salt', 'low' | 'moderate' | 'high'>
+  > | null
+  nutriments: {
+    energyKcal: number | null
+    fat: number | null
+    saturatedFat: number | null
+    carbohydrates: number | null
+    sugars: number | null
+    fiber: number | null
+    proteins: number | null
+    salt: number | null
+  } | null
+  quality: {
+    score: number | null
+    coverage: number
+    partial: boolean
+    label: string | null
+    components: {
+      id: 'nutrition' | 'nova' | 'additives'
+      label: string
+      weight: number
+      score: number | null
+      status: 'known' | 'unknown' | 'not-applicable' | 'missing'
+      title: string | null
+      description: string | null
+    }[]
+  }
+  compositionAvailable: boolean
 }
 
 export type ProductExpiryProfile = {

@@ -1,21 +1,21 @@
 import { DateTime } from 'luxon'
 import logger from '@adonisjs/core/services/logger'
 import env from '#start/env'
-import Product from '#models/product'
+import Product, {
+  type ProductNutrientLevels,
+  type ProductNutriments,
+  type ProductQualityAttribute,
+  type ProductQualityAttributes,
+} from '#models/product'
 
 /**
- * Open Food Facts asks for one API call per real user scan. Every lookup is
- * therefore cached in the `products` table and served from there forever
- * after — product metadata effectively never changes, and a re-scan of
- * something already in the fridge must not hit the network at all.
- *
- * Data licensed under the ODbL. Attribution is shown in the app footer.
+ * Open Food Facts is queried once per product and cached locally. Product
+ * composition is community data: the UI always reminds users to check the pack.
  */
 
 const DEFAULT_BASE_URL = 'https://world.openfoodfacts.org'
-const DEFAULT_USER_AGENT = 'MyFrigo/1.0 (deuleydamien@gmail.com)'
+const DEFAULT_USER_AGENT = 'MyFrigo/1.1 (deuleydamien@gmail.com)'
 
-/** Trimming the payload keeps mobile lookups fast on a weak signal. */
 const FIELDS = [
   'product_name',
   'product_name_fr',
@@ -24,22 +24,49 @@ const FIELDS = [
   'image_small_url',
   'categories_tags',
   'nutriscore_grade',
+  'nutrition_grades',
+  'ingredients_text_fr',
+  'ingredients_text',
+  'allergens_tags',
+  'additives_tags',
+  'labels_tags',
+  'nova_group',
+  'nutrient_levels',
+  'nutriments',
+  'attribute_groups_fr',
 ].join(',')
 
 const TIMEOUT_MS = 6000
 
-type OffResponse = {
-  status: 0 | 1
-  product?: {
-    product_name?: string
-    product_name_fr?: string
-    brands?: string
-    quantity?: string
-    image_small_url?: string
-    categories_tags?: string[]
-    nutriscore_grade?: string
-  }
+type OffAttribute = {
+  id?: string
+  status?: 'known' | 'unknown' | 'not-applicable'
+  match?: number
+  title?: string
+  description_short?: string
 }
+
+type OffProduct = {
+  product_name?: string
+  product_name_fr?: string
+  brands?: string
+  quantity?: string
+  image_small_url?: string
+  categories_tags?: string[]
+  nutriscore_grade?: string
+  nutrition_grades?: string
+  ingredients_text_fr?: string
+  ingredients_text?: string
+  allergens_tags?: string[]
+  additives_tags?: string[]
+  labels_tags?: string[]
+  nova_group?: number
+  nutrient_levels?: Record<string, unknown>
+  nutriments?: Record<string, unknown>
+  attribute_groups_fr?: { attributes?: OffAttribute[] }[]
+}
+
+type OffResponse = { status: 0 | 1; product?: OffProduct }
 
 export type LookupResult =
   | { outcome: 'found'; product: Product; fromCache: boolean }
@@ -47,17 +74,56 @@ export type LookupResult =
   | { outcome: 'skipped' }
   | { outcome: 'error'; message: string }
 
-/**
- * Returns the cached product, or asks Open Food Facts and caches the answer.
- * Never throws: a network failure downgrades to manual entry rather than
- * interrupting a burst of scans at the kitchen counter.
- */
 export async function lookup(barcode: string): Promise<LookupResult> {
   const cached = await Product.find(barcode)
-  if (cached) {
-    return { outcome: 'found', product: cached, fromCache: true }
-  }
+  if (cached) return { outcome: 'found', product: cached, fromCache: true }
 
+  const result = await requestProduct(barcode)
+  if (result.outcome !== 'found') return result
+
+  const name = productName(result.product)
+  if (!name) return { outcome: 'not_found' }
+
+  const now = DateTime.now()
+  const product = await Product.create({
+    barcode,
+    name,
+    brands: result.product.brands?.trim() || null,
+    quantityLabel: result.product.quantity?.trim() || null,
+    imageUrl: result.product.image_small_url || null,
+    nutriscore: nutriscore(result.product),
+    categoriesTags: result.product.categories_tags ?? [],
+    source: 'off',
+    fetchedAt: now,
+    compositionFetchedAt: now,
+    ...compositionData(result.product),
+  })
+
+  return { outcome: 'found', product, fromCache: false }
+}
+
+/** Enriches products cached before composition support, once on first detail view. */
+export async function enrichComposition(product: Product): Promise<Product> {
+  if (product.source !== 'off' || product.compositionFetchedAt) return product
+
+  const result = await requestProduct(product.barcode)
+  if (result.outcome !== 'found') return product
+
+  product.merge({
+    nutriscore: nutriscore(result.product) ?? product.nutriscore,
+    categoriesTags: result.product.categories_tags ?? product.categoriesTags,
+    compositionFetchedAt: DateTime.now(),
+    ...compositionData(result.product),
+  })
+  await product.save()
+  return product
+}
+
+async function requestProduct(
+  barcode: string
+): Promise<
+  { outcome: 'found'; product: OffProduct } | Exclude<LookupResult, { outcome: 'found' }>
+> {
   const baseUrl = env.get('OFF_BASE_URL') ?? DEFAULT_BASE_URL
   const url = `${baseUrl}/api/v2/product/${barcode}.json?fields=${FIELDS}`
 
@@ -71,11 +137,9 @@ export async function lookup(barcode: string): Promise<LookupResult> {
       signal: AbortSignal.timeout(TIMEOUT_MS),
     })
 
-    /** OFF answers 404 with a valid body for unknown products. */
     if (!response.ok && response.status !== 404) {
       return { outcome: 'error', message: `Open Food Facts a répondu ${response.status}` }
     }
-
     payload = (await response.json()) as OffResponse
   } catch (error) {
     logger.warn({ barcode, err: error }, 'Open Food Facts lookup failed')
@@ -88,29 +152,95 @@ export async function lookup(barcode: string): Promise<LookupResult> {
     }
   }
 
-  if (payload.status !== 1 || !payload.product) {
-    return { outcome: 'not_found' }
+  if (payload.status !== 1 || !payload.product) return { outcome: 'not_found' }
+  return { outcome: 'found', product: payload.product }
+}
+
+function compositionData(off: OffProduct) {
+  const qualityAttributes = extractQualityAttributes(off.attribute_groups_fr)
+  if (qualityAttributes?.additives) {
+    const count = off.additives_tags?.length ?? 0
+    qualityAttributes.additives.title =
+      count === 0 ? 'Aucun additif déclaré' : `${count} additif${count > 1 ? 's' : ''}`
   }
 
-  const off = payload.product
-  const name = off.product_name_fr?.trim() || off.product_name?.trim()
-
-  /** A product with no usable name is no better than an unknown one. */
-  if (!name) {
-    return { outcome: 'not_found' }
+  return {
+    ingredientsText: off.ingredients_text_fr?.trim() || off.ingredients_text?.trim() || null,
+    allergensTags: off.allergens_tags ?? [],
+    additivesTags: off.additives_tags ?? [],
+    labelsTags: off.labels_tags ?? [],
+    novaGroup: typeof off.nova_group === 'number' ? off.nova_group : null,
+    nutrientLevels: extractNutrientLevels(off.nutrient_levels),
+    nutriments: extractNutriments(off.nutriments),
+    qualityAttributes,
   }
+}
 
-  const product = await Product.create({
-    barcode,
-    name,
-    brands: off.brands?.trim() || null,
-    quantityLabel: off.quantity?.trim() || null,
-    imageUrl: off.image_small_url || null,
-    nutriscore: off.nutriscore_grade?.trim().toLowerCase().slice(0, 1) || null,
-    categoriesTags: off.categories_tags ?? [],
-    source: 'off',
-    fetchedAt: DateTime.now(),
-  })
+function extractNutriments(raw: Record<string, unknown> | undefined): ProductNutriments | null {
+  if (!raw) return null
+  const result: ProductNutriments = {
+    energyKcal: numberValue(raw['energy-kcal_100g']),
+    fat: numberValue(raw.fat_100g),
+    saturatedFat: numberValue(raw['saturated-fat_100g']),
+    carbohydrates: numberValue(raw.carbohydrates_100g),
+    sugars: numberValue(raw.sugars_100g),
+    fiber: numberValue(raw.fiber_100g),
+    proteins: numberValue(raw.proteins_100g),
+    salt: numberValue(raw.salt_100g),
+  }
+  return Object.values(result).some((value) => value !== null) ? result : null
+}
 
-  return { outcome: 'found', product, fromCache: false }
+function extractNutrientLevels(
+  raw: Record<string, unknown> | undefined
+): ProductNutrientLevels | null {
+  if (!raw) return null
+  const result: ProductNutrientLevels = {}
+  const fields = [
+    ['fat', 'fat'],
+    ['saturated-fat', 'saturatedFat'],
+    ['sugars', 'sugars'],
+    ['salt', 'salt'],
+  ] as const
+
+  for (const [source, target] of fields) {
+    const value = raw[source]
+    if (value === 'low' || value === 'moderate' || value === 'high') result[target] = value
+  }
+  return Object.keys(result).length > 0 ? result : null
+}
+
+function extractQualityAttributes(
+  groups: OffProduct['attribute_groups_fr']
+): ProductQualityAttributes | null {
+  const attributes = groups?.flatMap((group) => group.attributes ?? []) ?? []
+  const result: ProductQualityAttributes = {
+    nutrition: qualityAttribute(attributes, 'nutriscore'),
+    nova: qualityAttribute(attributes, 'nova'),
+    additives: qualityAttribute(attributes, 'additives'),
+  }
+  return Object.values(result).some(Boolean) ? result : null
+}
+
+function qualityAttribute(attributes: OffAttribute[], id: string): ProductQualityAttribute | null {
+  const attribute = attributes.find((candidate) => candidate.id === id)
+  if (!attribute) return null
+  return {
+    status: attribute.status ?? 'unknown',
+    score: numberValue(attribute.match),
+    title: attribute.title?.trim() || null,
+    description: attribute.description_short?.trim() || null,
+  }
+}
+
+function productName(off: OffProduct) {
+  return off.product_name_fr?.trim() || off.product_name?.trim() || null
+}
+
+function nutriscore(off: OffProduct) {
+  return (off.nutriscore_grade || off.nutrition_grades)?.trim().toLowerCase().slice(0, 1) || null
+}
+
+function numberValue(value: unknown) {
+  return typeof value === 'number' && Number.isFinite(value) ? value : null
 }

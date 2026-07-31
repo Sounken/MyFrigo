@@ -89,6 +89,8 @@ export default function ProductPage({
         </p>
       </section>
 
+      <CompositionSection product={product} />
+
       <section className="border-b border-neutral-800 px-4 py-5">
         <div className="mb-3 flex items-center justify-between">
           <h2 className="font-semibold">En stock</h2>
@@ -227,4 +229,169 @@ function StatCard({ value, label, tone }: { value: number; label: string; tone: 
       <p className="mt-0.5 text-xs text-neutral-500">fois {label}</p>
     </div>
   )
+}
+
+function CompositionSection({ product }: { product: ProductDetails }) {
+  const { quality } = product
+
+  if (!product.compositionAvailable) {
+    return (
+      <section className="border-b border-neutral-800 px-4 py-5">
+        <h2 className="font-semibold">Composition</h2>
+        <p className="mt-2 text-sm leading-relaxed text-neutral-500">
+          Aucune donnée de composition n’est disponible pour ce produit. La note n’est donc pas
+          calculée.
+        </p>
+      </section>
+    )
+  }
+
+  return (
+    <section className="border-b border-neutral-800 px-4 py-5">
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h2 className="font-semibold">Indice composition</h2>
+          <p className="mt-1 text-[10px] text-neutral-500">
+            Nutrition 60 % · Transformation 20 % · Additifs 20 %
+          </p>
+        </div>
+        <div className={`shrink-0 text-right ${scoreTone(quality.score)}`}>
+          <p className="text-2xl font-bold leading-none">
+            {quality.score === null ? '—' : quality.score}
+            {quality.score !== null && <span className="text-xs font-normal">/100</span>}
+          </p>
+          <p className="mt-1 text-[10px] font-medium">{quality.label ?? 'Données insuffisantes'}</p>
+        </div>
+      </div>
+
+      <div className="mt-4 space-y-3 rounded-2xl bg-neutral-900 p-4">
+        {quality.components.map((component) => (
+          <div key={component.id}>
+            <div className="flex items-center justify-between gap-3 text-xs">
+              <span className="text-neutral-300">{component.label}</span>
+              <span className="text-neutral-500">
+                {component.score === null ? 'non renseigné' : `${Math.round(component.score)}/100`}
+              </span>
+            </div>
+            <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-neutral-800">
+              {component.score !== null && (
+                <div
+                  className={`h-full rounded-full ${scoreBar(component.score)}`}
+                  style={{ width: `${component.score}%` }}
+                />
+              )}
+            </div>
+            {component.title && (
+              <p className="mt-1 text-[10px] text-neutral-600">{component.title}</p>
+            )}
+          </div>
+        ))}
+      </div>
+
+      {quality.partial && quality.score !== null && (
+        <p className="mt-2 text-[11px] text-amber-400">
+          Score partiel · {quality.coverage}% des critères disponibles
+        </p>
+      )}
+
+      {product.nutriments && (
+        <div className="mt-6">
+          <h3 className="text-xs font-semibold uppercase tracking-wide text-neutral-500">
+            Valeurs pour 100 g
+          </h3>
+          <div className="mt-3 grid grid-cols-2 gap-x-6 gap-y-2">
+            <Nutrient label="Énergie" value={product.nutriments.energyKcal} unit="kcal" />
+            <Nutrient label="Matières grasses" value={product.nutriments.fat} unit="g" />
+            <Nutrient label="dont saturées" value={product.nutriments.saturatedFat} unit="g" />
+            <Nutrient label="Glucides" value={product.nutriments.carbohydrates} unit="g" />
+            <Nutrient label="dont sucres" value={product.nutriments.sugars} unit="g" />
+            <Nutrient label="Fibres" value={product.nutriments.fiber} unit="g" />
+            <Nutrient label="Protéines" value={product.nutriments.proteins} unit="g" />
+            <Nutrient label="Sel" value={product.nutriments.salt} unit="g" />
+          </div>
+        </div>
+      )}
+
+      {product.ingredientsText && (
+        <div className="mt-6">
+          <h3 className="text-xs font-semibold uppercase tracking-wide text-neutral-500">
+            Ingrédients
+          </h3>
+          <p className="mt-2 text-sm leading-relaxed text-neutral-300">{product.ingredientsText}</p>
+        </div>
+      )}
+
+      {(product.allergensTags.length > 0 || product.additivesTags.length > 0) && (
+        <div className="mt-5 space-y-2 rounded-2xl border border-neutral-800 p-3 text-xs">
+          {product.allergensTags.length > 0 && (
+            <p>
+              <span className="text-neutral-500">Allergènes · </span>
+              <span className="text-amber-300">
+                {product.allergensTags.map(formatFoodTag).join(', ')}
+              </span>
+            </p>
+          )}
+          <p>
+            <span className="text-neutral-500">Additifs · </span>
+            <span className="text-neutral-300">
+              {product.additivesTags.length > 0
+                ? product.additivesTags.map(formatFoodTag).join(', ')
+                : 'aucun déclaré'}
+            </span>
+          </p>
+        </div>
+      )}
+
+      <p className="mt-4 text-[10px] leading-relaxed text-neutral-600">
+        Indice informatif calculé à partir des attributs Open Food Facts, distinct de Yuka et non
+        médical. Les données sont collaboratives : en cas d’allergie, vérifie toujours l’emballage.
+      </p>
+    </section>
+  )
+}
+
+function Nutrient({ label, value, unit }: { label: string; value: number | null; unit: string }) {
+  if (value === null) return null
+  return (
+    <div className="flex items-baseline justify-between gap-2 border-b border-neutral-900 pb-1 text-xs">
+      <span className="text-neutral-500">{label}</span>
+      <span className="font-medium text-neutral-300">
+        {new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 1 }).format(value)} {unit}
+      </span>
+    </div>
+  )
+}
+
+function scoreTone(score: number | null) {
+  if (score === null) return 'text-neutral-500'
+  if (score >= 75) return 'text-emerald-400'
+  if (score >= 50) return 'text-lime-400'
+  if (score >= 25) return 'text-orange-400'
+  return 'text-red-400'
+}
+
+function scoreBar(score: number) {
+  if (score >= 75) return 'bg-emerald-500'
+  if (score >= 50) return 'bg-lime-500'
+  if (score >= 25) return 'bg-orange-500'
+  return 'bg-red-500'
+}
+
+const FOOD_TAG_LABELS: Record<string, string> = {
+  nuts: 'fruits à coque',
+  milk: 'lait',
+  eggs: 'œufs',
+  peanuts: 'arachides',
+  soybeans: 'soja',
+  gluten: 'gluten',
+  celery: 'céleri',
+  mustard: 'moutarde',
+  fish: 'poisson',
+  crustaceans: 'crustacés',
+  molluscs: 'mollusques',
+}
+
+function formatFoodTag(tag: string) {
+  const value = tag.replace(/^[a-z]{2}:/, '')
+  return FOOD_TAG_LABELS[value] ?? value.replaceAll('-', ' ')
 }

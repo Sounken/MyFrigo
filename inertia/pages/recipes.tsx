@@ -84,6 +84,16 @@ export default function RecipesPage({ recipes, urgentItems, inventoryCount }: Pr
           </section>
 
           <section className="space-y-3 px-4 py-5">
+            {recipes.length === 0 && (
+              <div className="rounded-3xl bg-neutral-900 px-5 py-8 text-center">
+                <p className="text-3xl">🧩</p>
+                <h2 className="mt-3 font-semibold">Pas encore de combinaison fiable</h2>
+                <p className="mt-2 text-sm leading-relaxed text-neutral-500">
+                  Aucun modèle de recette ne correspond exactement aux familles d’aliments en stock.
+                  L’application préfère ne rien proposer plutôt que mélanger des produits au hasard.
+                </p>
+              </div>
+            )}
             {recipes.map((recipe) => {
               const open = openRecipe === recipe.id
               return (
