@@ -1,0 +1,12 @@
+node_modules
+build
+tmp
+.git
+.github
+.env
+.env.*
+!.env.example
+public/assets
+public/zxing_reader.wasm
+*.log
+.DS_Store

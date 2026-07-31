@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="fr" class="dark">
+
+<head>
+  <meta charset="utf-8">
+  {{--
+    viewport-fit=cover lets the camera preview run edge to edge behind the
+    notch; user-scalable=no stops a double tap from zooming the scanner while
+    you are holding the phone over a barcode.
+  --}}
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no, maximum-scale=1">
+  <meta name="theme-color" content="#0a0a0a">
+  <meta name="color-scheme" content="dark">
+
+  <title inertia>MyFrigo</title>
+
+  {{-- Home-screen install. On iOS this is also what unlocks Web Push. --}}
+  <link rel="manifest" href="/manifest.webmanifest">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="MyFrigo">
+  <link rel="apple-touch-icon" href="/icons/icon-180.png">
+  <link rel="icon" href="/icons/icon-192.png" type="image/png">
+
+  @stack('dumper')
+  @viteReactRefresh()
+  @inertiaHead()
+  @vite(['inertia/app/app.tsx', `inertia/pages/${page.component}.tsx`])
+</head>
+
+<body class="min-h-[100dvh] font-sans">
+  @inertia()
+</body>
+
+</html>
