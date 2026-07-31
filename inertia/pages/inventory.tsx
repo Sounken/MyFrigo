@@ -1,5 +1,6 @@
 import { Head, Link, router } from '@inertiajs/react'
-import { useCallback, useMemo, useRef, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { motion } from 'motion/react'
 import AppShell, { LogoutButton } from '~/components/app_shell'
 import EditItemDialog from '~/components/edit_item_dialog'
 import PushPrompt from '~/components/push_prompt'
@@ -43,6 +44,7 @@ export default function InventoryPage({ items: initialItems, vapidPublicKey }: P
   const [previewBarcode, setPreviewBarcode] = useState<string | null>(null)
   const [previewProduct, setPreviewProduct] = useState<ProductDetails | null>(null)
   const [previewLoading, setPreviewLoading] = useState(false)
+  const [previewExpanded, setPreviewExpanded] = useState(true)
   const [query, setQuery] = useState('')
   const [location, setLocation] = useState<'all' | ItemLocation>('all')
   const undoTimer = useRef<number | null>(null)
@@ -100,32 +102,51 @@ export default function InventoryPage({ items: initialItems, vapidPublicKey }: P
     }
   }, [undo])
 
-  const openProductPreview = useCallback(async (barcode: string) => {
-    const requestId = ++previewRequest.current
-    setPreviewBarcode(barcode)
-    setPreviewProduct(null)
-    setPreviewLoading(true)
-    try {
-      const payload = await api<{ product: ProductDetails }>(
-        `/api/products/${encodeURIComponent(barcode)}`
-      )
-      if (requestId !== previewRequest.current) return
-      setPreviewProduct(payload.product)
-    } catch {
-      if (requestId !== previewRequest.current) return
-      /** Keep the full page available if a preview request fails. */
-      router.visit(`/products/${encodeURIComponent(barcode)}`)
-      setPreviewBarcode(null)
-    } finally {
-      setPreviewLoading(false)
-    }
-  }, [])
+  const openProductPreview = useCallback(
+    async (barcode: string) => {
+      const requestId = ++previewRequest.current
+      setPreviewExpanded((current) => (previewBarcode ? current : true))
+      setPreviewBarcode(barcode)
+      setPreviewProduct(null)
+      setPreviewLoading(true)
+      try {
+        const payload = await api<{ product: ProductDetails }>(
+          `/api/products/${encodeURIComponent(barcode)}`
+        )
+        if (requestId !== previewRequest.current) return
+        setPreviewProduct(payload.product)
+      } catch {
+        if (requestId !== previewRequest.current) return
+        /** Keep the full page available if a preview request fails. */
+        router.visit(`/products/${encodeURIComponent(barcode)}`)
+        setPreviewBarcode(null)
+      } finally {
+        setPreviewLoading(false)
+      }
+    },
+    [previewBarcode]
+  )
 
   const closeProductPreview = useCallback(() => {
     previewRequest.current += 1
     setPreviewBarcode(null)
     setPreviewProduct(null)
+    setPreviewExpanded(true)
   }, [])
+
+  useEffect(() => {
+    if (!previewBarcode) return
+
+    let lastScrollY = window.scrollY
+    const collapseOnBackgroundScroll = () => {
+      if (Math.abs(window.scrollY - lastScrollY) < 8) return
+      lastScrollY = window.scrollY
+      setPreviewExpanded(false)
+    }
+
+    window.addEventListener('scroll', collapseOnBackgroundScroll, { passive: true })
+    return () => window.removeEventListener('scroll', collapseOnBackgroundScroll)
+  }, [previewBarcode])
 
   return (
     <AppShell title="Mon frigo" action={<LogoutButton />}>
@@ -268,7 +289,9 @@ export default function InventoryPage({ items: initialItems, vapidPublicKey }: P
         <ProductPreviewSheet
           product={previewProduct}
           loading={previewLoading}
+          expanded={previewExpanded}
           onClose={closeProductPreview}
+          onToggleExpanded={() => setPreviewExpanded((current) => !current)}
           onDetails={() => router.visit(`/products/${encodeURIComponent(previewBarcode)}`)}
         />
       )}
@@ -326,22 +349,42 @@ function FilterButton({
 function ProductPreviewSheet({
   product,
   loading,
+  expanded,
   onClose,
+  onToggleExpanded,
   onDetails,
 }: {
   product: ProductDetails | null
   loading: boolean
+  expanded: boolean
   onClose: () => void
+  onToggleExpanded: () => void
   onDetails: () => void
 }) {
   return (
     <div className="pointer-events-none fixed inset-0 z-40 flex items-end" role="presentation">
-      <section
+      <motion.section
         role="dialog"
         aria-labelledby="product-preview-title"
-        className="pointer-events-auto max-h-[58vh] w-full overflow-y-auto rounded-t-3xl border-t border-neutral-700 bg-neutral-900 px-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] pt-4 shadow-2xl"
+        animate={{ height: expanded ? '58vh' : '18vh' }}
+        transition={{ type: 'spring', stiffness: 340, damping: 32, mass: 0.8 }}
+        onClick={() => {
+          if (!expanded) onToggleExpanded()
+        }}
+        className="pointer-events-auto w-full overflow-y-auto overflow-x-hidden rounded-t-3xl border-t border-neutral-700 bg-neutral-900 px-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] pt-4 shadow-2xl"
       >
-        <div className="mx-auto mb-4 h-1 w-10 rounded-full bg-neutral-700" />
+        <button
+          type="button"
+          aria-label={expanded ? 'Réduire l’aperçu produit' : 'Déployer l’aperçu produit'}
+          aria-expanded={expanded}
+          onClick={(event) => {
+            event.stopPropagation()
+            onToggleExpanded()
+          }}
+          className="mx-auto mb-4 block h-5 w-16 rounded-full py-2 active:bg-neutral-800"
+        >
+          <span className="mx-auto block h-1 w-10 rounded-full bg-neutral-700" />
+        </button>
         <div className="flex items-start justify-between gap-4">
           <div>
             <p className="text-xs text-neutral-500">Aperçu produit</p>
@@ -359,105 +402,113 @@ function ProductPreviewSheet({
           </button>
         </div>
 
-        {loading || !product ? (
-          <div className="flex items-center justify-center py-14 text-sm text-neutral-500">
-            Chargement de la composition…
-          </div>
-        ) : (
-          <>
-            <div className="mt-5 flex items-start gap-3">
-              {product.imageUrl ? (
-                <img
-                  src={product.imageUrl}
-                  alt=""
-                  className="size-16 shrink-0 rounded-2xl bg-white object-contain p-1"
-                />
-              ) : (
-                <div className="flex size-16 shrink-0 items-center justify-center rounded-2xl bg-neutral-800 text-2xl">
-                  📦
-                </div>
-              )}
-              <div className="min-w-0">
-                {product.brands && <p className="text-sm text-neutral-400">{product.brands}</p>}
-                <div className="mt-2 flex flex-wrap gap-2">
-                  {product.nutriscore && (
-                    <span
-                      className={`rounded-full px-2.5 py-1 text-xs font-bold ${previewNutriscoreColor(product.nutriscore)}`}
-                    >
-                      Nutri-score {product.nutriscore.toUpperCase()}
-                    </span>
-                  )}
-                  {product.novaGroup && (
-                    <span className="rounded-full bg-neutral-800 px-2.5 py-1 text-xs text-neutral-300">
-                      {novaLabel(product.novaGroup)}
-                    </span>
-                  )}
+        <motion.div
+          animate={{ opacity: expanded ? 1 : 0, y: expanded ? 0 : 12 }}
+          transition={{ duration: 0.18 }}
+          className={expanded ? '' : 'pointer-events-none'}
+        >
+          {loading || !product ? (
+            <div className="flex items-center justify-center py-14 text-sm text-neutral-500">
+              Chargement de la composition…
+            </div>
+          ) : (
+            <>
+              <div className="mt-5 flex items-start gap-3">
+                {product.imageUrl ? (
+                  <img
+                    src={product.imageUrl}
+                    alt=""
+                    className="size-16 shrink-0 rounded-2xl bg-white object-contain p-1"
+                  />
+                ) : (
+                  <div className="flex size-16 shrink-0 items-center justify-center rounded-2xl bg-neutral-800 text-2xl">
+                    📦
+                  </div>
+                )}
+                <div className="min-w-0">
+                  {product.brands && <p className="text-sm text-neutral-400">{product.brands}</p>}
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {product.nutriscore && (
+                      <span
+                        className={`rounded-full px-2.5 py-1 text-xs font-bold ${previewNutriscoreColor(product.nutriscore)}`}
+                      >
+                        Nutri-score {product.nutriscore.toUpperCase()}
+                      </span>
+                    )}
+                    {product.novaGroup && (
+                      <span className="rounded-full bg-neutral-800 px-2.5 py-1 text-xs text-neutral-300">
+                        {novaLabel(product.novaGroup)}
+                      </span>
+                    )}
+                  </div>
                 </div>
               </div>
-            </div>
 
-            <div className="mt-5 rounded-2xl bg-neutral-800/70 p-3">
-              <div className="flex items-center justify-between gap-3">
-                <div>
-                  <p className="text-[11px] font-semibold uppercase tracking-wide text-neutral-500">
-                    Indice de composition
-                  </p>
-                  <p className="mt-1 text-xs text-neutral-400">
-                    {product.quality.label ?? 'Données insuffisantes'}
-                  </p>
-                </div>
-                <p className={`text-2xl font-bold ${compositionScoreTone(product.quality.score)}`}>
-                  {product.quality.score === null ? '—' : `${product.quality.score}/100`}
-                </p>
-              </div>
-              {product.quality.partial && product.quality.score !== null && (
-                <p className="mt-2 text-[11px] text-amber-300">
-                  Score partiel · {product.quality.coverage}% des critères disponibles
-                </p>
-              )}
-            </div>
-
-            {product.ingredientsText ? (
               <div className="mt-5 rounded-2xl bg-neutral-800/70 p-3">
-                <p className="text-[11px] font-semibold uppercase tracking-wide text-neutral-500">
-                  Ingrédients
-                </p>
-                <p className="mt-2 text-sm leading-relaxed text-neutral-300">
-                  {product.ingredientsText}
-                </p>
-              </div>
-            ) : (
-              <p className="mt-5 text-sm text-neutral-500">Composition non renseignée.</p>
-            )}
-
-            {product.additives.length > 0 && (
-              <div className="mt-4">
-                <p className="text-[11px] font-semibold uppercase tracking-wide text-neutral-500">
-                  Additifs détectés
-                </p>
-                <div className="mt-2 flex flex-wrap gap-2">
-                  {product.additives.map((additive) => (
-                    <span
-                      key={additive.code}
-                      className="rounded-full bg-neutral-800 px-3 py-1.5 text-xs text-neutral-300"
-                    >
-                      {additive.code.toUpperCase()}
-                    </span>
-                  ))}
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-[11px] font-semibold uppercase tracking-wide text-neutral-500">
+                      Indice de composition
+                    </p>
+                    <p className="mt-1 text-xs text-neutral-400">
+                      {product.quality.label ?? 'Données insuffisantes'}
+                    </p>
+                  </div>
+                  <p
+                    className={`text-2xl font-bold ${compositionScoreTone(product.quality.score)}`}
+                  >
+                    {product.quality.score === null ? '—' : `${product.quality.score}/100`}
+                  </p>
                 </div>
+                {product.quality.partial && product.quality.score !== null && (
+                  <p className="mt-2 text-[11px] text-amber-300">
+                    Score partiel · {product.quality.coverage}% des critères disponibles
+                  </p>
+                )}
               </div>
-            )}
 
-            <button
-              type="button"
-              onClick={onDetails}
-              className="mt-6 w-full rounded-2xl bg-emerald-500 px-5 py-3.5 text-center font-semibold text-neutral-950 active:bg-emerald-400"
-            >
-              Détail aliment
-            </button>
-          </>
-        )}
-      </section>
+              {product.ingredientsText ? (
+                <div className="mt-5 rounded-2xl bg-neutral-800/70 p-3">
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-neutral-500">
+                    Ingrédients
+                  </p>
+                  <p className="mt-2 text-sm leading-relaxed text-neutral-300">
+                    {product.ingredientsText}
+                  </p>
+                </div>
+              ) : (
+                <p className="mt-5 text-sm text-neutral-500">Composition non renseignée.</p>
+              )}
+
+              {product.additives.length > 0 && (
+                <div className="mt-4">
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-neutral-500">
+                    Additifs détectés
+                  </p>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {product.additives.map((additive) => (
+                      <span
+                        key={additive.code}
+                        className="rounded-full bg-neutral-800 px-3 py-1.5 text-xs text-neutral-300"
+                      >
+                        {additive.code.toUpperCase()}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <button
+                type="button"
+                onClick={onDetails}
+                className="mt-6 w-full rounded-2xl bg-emerald-500 px-5 py-3.5 text-center font-semibold text-neutral-950 active:bg-emerald-400"
+              >
+                Détail aliment
+              </button>
+            </>
+          )}
+        </motion.div>
+      </motion.section>
     </div>
   )
 }
