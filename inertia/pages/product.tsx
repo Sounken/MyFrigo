@@ -270,7 +270,13 @@ function CompositionSection({ product }: { product: ProductDetails }) {
             <div className="flex items-center justify-between gap-3 text-xs">
               <span className="text-neutral-300">{component.label}</span>
               <span className="text-neutral-500">
-                {component.score === null ? 'non renseigné' : `${Math.round(component.score)}/100`}
+                {component.score === null
+                  ? component.id === 'additives'
+                    ? product.additivesTags.length > 0
+                      ? `${product.additivesTags.length} détecté${product.additivesTags.length > 1 ? 's' : ''} · risque non classifié`
+                      : 'risque non classifié'
+                    : 'non renseigné'
+                  : `${Math.round(component.score)}/100`}
               </span>
             </div>
             <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-neutral-800">
@@ -291,6 +297,13 @@ function CompositionSection({ product }: { product: ProductDetails }) {
       {quality.partial && quality.score !== null && (
         <p className="mt-2 text-[11px] text-amber-400">
           Score partiel · {quality.coverage}% des critères disponibles
+        </p>
+      )}
+
+      {product.additivesTags.length > 0 && (
+        <p className="mt-2 text-[11px] text-neutral-500">
+          Le nombre d’additifs indique leur présence, pas leur dangerosité. MyFrigo n’applique pas
+          de pénalité sans classification de risque documentée.
         </p>
       )}
 

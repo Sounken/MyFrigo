@@ -37,6 +37,7 @@ const FIELDS = [
 ].join(',')
 
 const TIMEOUT_MS = 6000
+const COMPOSITION_VERSION = 2
 
 type OffAttribute = {
   id?: string
@@ -96,6 +97,7 @@ export async function lookup(barcode: string): Promise<LookupResult> {
     source: 'off',
     fetchedAt: now,
     compositionFetchedAt: now,
+    compositionVersion: COMPOSITION_VERSION,
     ...compositionData(result.product),
   })
 
@@ -104,7 +106,12 @@ export async function lookup(barcode: string): Promise<LookupResult> {
 
 /** Enriches products cached before composition support, once on first detail view. */
 export async function enrichComposition(product: Product): Promise<Product> {
-  if (product.source !== 'off' || product.compositionFetchedAt) return product
+  if (
+    product.source !== 'off' ||
+    (product.compositionFetchedAt && product.compositionVersion === COMPOSITION_VERSION)
+  ) {
+    return product
+  }
 
   const result = await requestProduct(product.barcode)
   if (result.outcome !== 'found') return product
@@ -113,6 +120,7 @@ export async function enrichComposition(product: Product): Promise<Product> {
     nutriscore: nutriscore(result.product) ?? product.nutriscore,
     categoriesTags: result.product.categories_tags ?? product.categoriesTags,
     compositionFetchedAt: DateTime.now(),
+    compositionVersion: COMPOSITION_VERSION,
     ...compositionData(result.product),
   })
   await product.save()
@@ -157,12 +165,22 @@ async function requestProduct(
 }
 
 function compositionData(off: OffProduct) {
-  const qualityAttributes = extractQualityAttributes(off.attribute_groups_fr)
+  const qualityAttributes = extractQualityAttributes(off.attribute_groups_fr) ?? {
+    nutrition: null,
+    nova: null,
+    additives: null,
+  }
   if (qualityAttributes?.additives) {
     const count = off.additives_tags?.length ?? 0
     qualityAttributes.additives.title =
       count === 0 ? 'Aucun additif déclaré' : `${count} additif${count > 1 ? 's' : ''}`
   }
+
+  if (off.nova_group) {
+    qualityAttributes.nova ??= novaFallback(off.nova_group)
+  }
+
+  const hasQualityAttributes = Object.values(qualityAttributes).some(Boolean)
 
   return {
     ingredientsText: off.ingredients_text_fr?.trim() || off.ingredients_text?.trim() || null,
@@ -172,7 +190,7 @@ function compositionData(off: OffProduct) {
     novaGroup: typeof off.nova_group === 'number' ? off.nova_group : null,
     nutrientLevels: extractNutrientLevels(off.nutrient_levels),
     nutriments: extractNutriments(off.nutriments),
-    qualityAttributes,
+    qualityAttributes: hasQualityAttributes ? qualityAttributes : null,
   }
 }
 
@@ -230,6 +248,25 @@ function qualityAttribute(attributes: OffAttribute[], id: string): ProductQualit
     score: numberValue(attribute.match),
     title: attribute.title?.trim() || null,
     description: attribute.description_short?.trim() || null,
+    basis: id === 'additives' ? 'count' : 'official-match',
+  }
+}
+
+function novaFallback(group: number): ProductQualityAttribute | null {
+  const titles: Record<number, string> = {
+    1: 'Peu transformé',
+    2: 'Ingrédient culinaire transformé',
+    3: 'Aliment transformé',
+    4: 'Aliment ultra-transformé',
+  }
+  if (!titles[group]) return null
+
+  return {
+    status: 'known',
+    score: [null, 100, 70, 35, 0][group] ?? null,
+    title: `NOVA ${group} · ${titles[group]}`,
+    description: null,
+    basis: 'official-match',
   }
 }
 

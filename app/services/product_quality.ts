@@ -33,7 +33,11 @@ export function calculateProductQuality(
 ): ProductQuality {
   const components: QualityComponent[] = COMPONENTS.map((definition) => {
     const attribute = attributes?.[definition.id] ?? null
-    const known = attribute?.status === 'known' && attribute.score !== null
+    const known =
+      attribute?.status === 'known' &&
+      attribute.score !== null &&
+      /** A count of additives must never masquerade as a toxicity score. */
+      !(definition.id === 'additives' && attribute.basis === 'count')
     return {
       ...definition,
       score: known ? clamp(attribute.score!) : null,

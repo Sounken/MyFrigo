@@ -25,6 +25,8 @@ export type ProductQualityAttribute = {
   score: number | null
   title: string | null
   description: string | null
+  /** Open Food Facts' additives match is a count signal, not a toxicity assessment. */
+  basis?: 'official-match' | 'count'
 }
 
 export type ProductQualityAttributes = {
@@ -105,6 +107,9 @@ export default class Product extends BaseModel {
 
   @column.dateTime()
   declare compositionFetchedAt: DateTime | null
+
+  @column()
+  declare compositionVersion: number | null
 
   @column.dateTime({ autoCreate: true })
   declare createdAt: DateTime

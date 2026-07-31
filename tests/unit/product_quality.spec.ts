@@ -42,4 +42,18 @@ test.group('Product quality', () => {
 
     assert.isNull(quality.score)
   })
+
+  test('does not turn an additive count into a toxicity penalty', ({ assert }) => {
+    const quality = calculateProductQuality({
+      nutrition: known(80, 'Nutri-Score B'),
+      nova: known(70, 'NOVA 2'),
+      additives: {
+        ...known(40, '3 additifs détectés'),
+        basis: 'count',
+      },
+    })
+
+    assert.equal(quality.score, 78)
+    assert.isNull(quality.components.find((component) => component.id === 'additives')?.score)
+  })
 })
