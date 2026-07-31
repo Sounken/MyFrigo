@@ -1,5 +1,6 @@
 import { Link, router } from '@inertiajs/react'
 import type { ReactNode } from 'react'
+import ConnectionBanner from '~/components/connection_banner'
 
 type Props = {
   title: string
@@ -19,6 +20,8 @@ export default function AppShell({ title, action, children }: Props) {
           {action}
         </div>
       </header>
+
+      <ConnectionBanner />
 
       <main className="flex-1">{children}</main>
 

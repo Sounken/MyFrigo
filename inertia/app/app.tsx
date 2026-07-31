@@ -22,3 +22,13 @@ createInertiaApp({
     createRoot(el).render(<App {...props} />)
   },
 })
+
+/**
+ * The service worker is useful even without Web Push: it keeps the static app
+ * shell available and provides a deliberate offline screen on a lost network.
+ */
+if (import.meta.env.PROD && 'serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    void navigator.serviceWorker.register('/sw.js')
+  })
+}
