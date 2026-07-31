@@ -28,6 +28,14 @@ const SECTIONS: { key: Urgency; title: string; tone: string }[] = [
 /** Long enough to catch a mis-swipe, short enough not to linger over the list. */
 const UNDO_MS = 5000
 
+const PREVIEW_NUTRISCORE_COLORS: Record<string, string> = {
+  a: 'bg-emerald-500 text-neutral-950',
+  b: 'bg-lime-400 text-neutral-950',
+  c: 'bg-yellow-400 text-neutral-950',
+  d: 'bg-orange-500 text-neutral-950',
+  e: 'bg-red-500 text-white',
+}
+
 export default function InventoryPage({ items: initialItems, vapidPublicKey }: Props) {
   const [items, setItems] = useState(initialItems)
   const [undo, setUndo] = useState<{ item: InventoryItem; label: string } | null>(null)
@@ -38,6 +46,7 @@ export default function InventoryPage({ items: initialItems, vapidPublicKey }: P
   const [query, setQuery] = useState('')
   const [location, setLocation] = useState<'all' | ItemLocation>('all')
   const undoTimer = useRef<number | null>(null)
+  const previewRequest = useRef(0)
 
   const filteredItems = useMemo(() => {
     const needle = normalizeSearch(query)
@@ -92,6 +101,7 @@ export default function InventoryPage({ items: initialItems, vapidPublicKey }: P
   }, [undo])
 
   const openProductPreview = useCallback(async (barcode: string) => {
+    const requestId = ++previewRequest.current
     setPreviewBarcode(barcode)
     setPreviewProduct(null)
     setPreviewLoading(true)
@@ -99,8 +109,10 @@ export default function InventoryPage({ items: initialItems, vapidPublicKey }: P
       const payload = await api<{ product: ProductDetails }>(
         `/api/products/${encodeURIComponent(barcode)}`
       )
+      if (requestId !== previewRequest.current) return
       setPreviewProduct(payload.product)
     } catch {
+      if (requestId !== previewRequest.current) return
       /** Keep the full page available if a preview request fails. */
       router.visit(`/products/${encodeURIComponent(barcode)}`)
       setPreviewBarcode(null)
@@ -110,6 +122,7 @@ export default function InventoryPage({ items: initialItems, vapidPublicKey }: P
   }, [])
 
   const closeProductPreview = useCallback(() => {
+    previewRequest.current += 1
     setPreviewBarcode(null)
     setPreviewProduct(null)
   }, [])
@@ -322,17 +335,11 @@ function ProductPreviewSheet({
   onDetails: () => void
 }) {
   return (
-    <div
-      className="fixed inset-0 z-40 flex items-end bg-black/60"
-      role="presentation"
-      onClick={onClose}
-    >
+    <div className="pointer-events-none fixed inset-0 z-40 flex items-end" role="presentation">
       <section
         role="dialog"
-        aria-modal="true"
         aria-labelledby="product-preview-title"
-        onClick={(event) => event.stopPropagation()}
-        className="max-h-[88vh] w-full overflow-y-auto rounded-t-3xl border-t border-neutral-700 bg-neutral-900 px-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] pt-4 shadow-2xl"
+        className="pointer-events-auto max-h-[58vh] w-full overflow-y-auto rounded-t-3xl border-t border-neutral-700 bg-neutral-900 px-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] pt-4 shadow-2xl"
       >
         <div className="mx-auto mb-4 h-1 w-10 rounded-full bg-neutral-700" />
         <div className="flex items-start justify-between gap-4">
@@ -374,7 +381,9 @@ function ProductPreviewSheet({
                 {product.brands && <p className="text-sm text-neutral-400">{product.brands}</p>}
                 <div className="mt-2 flex flex-wrap gap-2">
                   {product.nutriscore && (
-                    <span className="rounded-full bg-neutral-800 px-2.5 py-1 text-xs text-neutral-300">
+                    <span
+                      className={`rounded-full px-2.5 py-1 text-xs font-bold ${previewNutriscoreColor(product.nutriscore)}`}
+                    >
                       Nutri-score {product.nutriscore.toUpperCase()}
                     </span>
                   )}
@@ -385,6 +394,27 @@ function ProductPreviewSheet({
                   )}
                 </div>
               </div>
+            </div>
+
+            <div className="mt-5 rounded-2xl bg-neutral-800/70 p-3">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-neutral-500">
+                    Indice de composition
+                  </p>
+                  <p className="mt-1 text-xs text-neutral-400">
+                    {product.quality.label ?? 'Données insuffisantes'}
+                  </p>
+                </div>
+                <p className={`text-2xl font-bold ${compositionScoreTone(product.quality.score)}`}>
+                  {product.quality.score === null ? '—' : `${product.quality.score}/100`}
+                </p>
+              </div>
+              {product.quality.partial && product.quality.score !== null && (
+                <p className="mt-2 text-[11px] text-amber-300">
+                  Score partiel · {product.quality.coverage}% des critères disponibles
+                </p>
+              )}
             </div>
 
             {product.ingredientsText ? (
@@ -440,4 +470,16 @@ function novaLabel(group: number) {
     4: 'Ultra-transformé',
   }
   return labels[group] ?? `NOVA ${group}`
+}
+
+function previewNutriscoreColor(value: string) {
+  return PREVIEW_NUTRISCORE_COLORS[value.toLowerCase()] ?? 'bg-neutral-800 text-neutral-300'
+}
+
+function compositionScoreTone(score: number | null) {
+  if (score === null) return 'text-neutral-400'
+  if (score >= 75) return 'text-emerald-400'
+  if (score >= 50) return 'text-lime-300'
+  if (score >= 25) return 'text-orange-400'
+  return 'text-red-400'
 }
