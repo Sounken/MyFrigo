@@ -8,8 +8,7 @@ type Props = {
 }
 
 /**
- * Two destinations, both reachable with a thumb. The whole app is a loop
- * between putting things in and taking them out.
+ * The three daily destinations stay reachable with a thumb.
  */
 export default function AppShell({ title, action, children }: Props) {
   return (
@@ -24,9 +23,10 @@ export default function AppShell({ title, action, children }: Props) {
       <main className="flex-1">{children}</main>
 
       <nav className="sticky bottom-0 z-20 border-t border-neutral-800/80 bg-neutral-950/95 pb-[env(safe-area-inset-bottom)] backdrop-blur">
-        <div className="grid grid-cols-2">
+        <div className="grid grid-cols-3">
           <NavLink href="/" label="Frigo" icon="🧊" />
           <NavLink href="/scan" label="Scanner" icon="📷" />
+          <NavLink href="/stats" label="Bilan" icon="📊" />
         </div>
       </nav>
     </div>

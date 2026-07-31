@@ -1,11 +1,12 @@
 import { Head, Link } from '@inertiajs/react'
-import { useCallback, useMemo, useRef, useState } from 'react'
+import { useCallback, useMemo, useRef, useState, type ReactNode } from 'react'
 import AppShell, { LogoutButton } from '~/components/app_shell'
+import EditItemDialog from '~/components/edit_item_dialog'
 import PushPrompt from '~/components/push_prompt'
 import SwipeableItem from '~/components/swipeable_item'
 import { post } from '~/lib/api'
 import { urgencyOf, type Urgency } from '~/lib/dates'
-import type { InventoryItem } from '~/lib/types'
+import { LOCATION_LABELS, type InventoryItem, type ItemLocation } from '~/lib/types'
 
 type Props = {
   items: InventoryItem[]
@@ -25,14 +26,28 @@ const UNDO_MS = 5000
 export default function InventoryPage({ items: initialItems, vapidPublicKey }: Props) {
   const [items, setItems] = useState(initialItems)
   const [undo, setUndo] = useState<{ item: InventoryItem; label: string } | null>(null)
+  const [editing, setEditing] = useState<InventoryItem | null>(null)
+  const [query, setQuery] = useState('')
+  const [location, setLocation] = useState<'all' | ItemLocation>('all')
   const undoTimer = useRef<number | null>(null)
+
+  const filteredItems = useMemo(() => {
+    const needle = normalizeSearch(query)
+    return items.filter((item) => {
+      if (location !== 'all' && item.location !== location) return false
+      if (!needle) return true
+      return normalizeSearch(
+        [item.name, item.brands, item.barcode].filter(Boolean).join(' ')
+      ).includes(needle)
+    })
+  }, [items, location, query])
 
   const sections = useMemo(() => {
     return SECTIONS.map((section) => ({
       ...section,
-      items: items.filter((item) => urgencyOf(item.daysLeft) === section.key),
+      items: filteredItems.filter((item) => urgencyOf(item.daysLeft) === section.key),
     })).filter((section) => section.items.length > 0)
-  }, [items])
+  }, [filteredItems])
 
   const resolve = useCallback(async (item: InventoryItem, status: 'consumed' | 'trashed') => {
     /**
@@ -92,6 +107,56 @@ export default function InventoryPage({ items: initialItems, vapidPublicKey }: P
         </div>
       ) : (
         <div className="pb-4">
+          <div className="space-y-3 border-b border-neutral-800/70 px-4 py-3">
+            <div className="relative">
+              <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-neutral-500">
+                ⌕
+              </span>
+              <input
+                type="search"
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                placeholder="Rechercher un produit"
+                className="w-full rounded-xl border border-neutral-800 bg-neutral-900 py-2.5 pl-9 pr-3 outline-none focus:border-neutral-600"
+              />
+            </div>
+
+            <div className="flex gap-2 overflow-x-auto pb-0.5">
+              <FilterButton active={location === 'all'} onClick={() => setLocation('all')}>
+                Tout · {items.length}
+              </FilterButton>
+              {(Object.keys(LOCATION_LABELS) as ItemLocation[]).map((key) => {
+                const count = items.filter((item) => item.location === key).length
+                return (
+                  <FilterButton
+                    key={key}
+                    active={location === key}
+                    onClick={() => setLocation(key)}
+                  >
+                    {LOCATION_LABELS[key]} · {count}
+                  </FilterButton>
+                )
+              })}
+            </div>
+          </div>
+
+          {filteredItems.length === 0 && (
+            <div className="px-8 py-16 text-center">
+              <p className="text-3xl">🔎</p>
+              <p className="mt-3 font-medium">Aucun produit trouvé</p>
+              <button
+                type="button"
+                onClick={() => {
+                  setQuery('')
+                  setLocation('all')
+                }}
+                className="mt-3 text-sm text-emerald-400"
+              >
+                Effacer les filtres
+              </button>
+            </div>
+          )}
+
           {sections.map((section) => (
             <section key={section.key}>
               <h2
@@ -106,6 +171,7 @@ export default function InventoryPage({ items: initialItems, vapidPublicKey }: P
                   item={item}
                   onConsume={() => resolve(item, 'consumed')}
                   onTrash={() => resolve(item, 'trashed')}
+                  onEdit={() => setEditing(item)}
                 />
               ))}
             </section>
@@ -135,6 +201,24 @@ export default function InventoryPage({ items: initialItems, vapidPublicKey }: P
         </div>
       )}
 
+      {editing && (
+        <EditItemDialog
+          key={editing.id}
+          item={editing}
+          onClose={() => setEditing(null)}
+          onSaved={(updated) => {
+            setItems((current) =>
+              current.map((item) => (item.id === updated.id ? updated : item)).sort(byExpiry)
+            )
+            setEditing(null)
+          }}
+          onDeleted={(deleted) => {
+            setItems((current) => current.filter((item) => item.id !== deleted.id))
+            setEditing(null)
+          }}
+        />
+      )}
+
       <footer className="px-4 pb-6 text-center text-[10px] leading-relaxed text-neutral-700">
         Données produits issues d’
         <a
@@ -153,4 +237,34 @@ export default function InventoryPage({ items: initialItems, vapidPublicKey }: P
 
 function byExpiry(a: InventoryItem, b: InventoryItem) {
   return a.expiresAt.localeCompare(b.expiresAt) || a.id - b.id
+}
+
+function normalizeSearch(value: string) {
+  return value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLocaleLowerCase('fr')
+    .trim()
+}
+
+function FilterButton({
+  active,
+  onClick,
+  children,
+}: {
+  active: boolean
+  onClick: () => void
+  children: ReactNode
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-medium transition-colors ${
+        active ? 'bg-white text-neutral-950' : 'bg-neutral-900 text-neutral-400'
+      }`}
+    >
+      {children}
+    </button>
+  )
 }

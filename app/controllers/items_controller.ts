@@ -1,9 +1,9 @@
 import type { HttpContext } from '@adonisjs/core/http'
 import { DateTime } from 'luxon'
-import db from '@adonisjs/lucid/services/db'
 import Item, { type ItemLocation } from '#models/item'
 import Product from '#models/product'
 import { createItemValidator, updateItemValidator } from '#validators/item'
+import { getWasteStats } from '#services/waste_stats'
 
 export function serializeItem(item: Item) {
   return {
@@ -141,13 +141,6 @@ export default class ItemsController {
 
   /** Waste stats, cheap enough to compute on the fly at this scale. */
   async stats({ response }: HttpContext) {
-    const rows = await db
-      .from('items')
-      .select('status')
-      .count('* as total')
-      .whereNot('status', 'in_stock')
-      .groupBy('status')
-
-    return response.send({ stats: rows })
+    return response.send({ stats: await getWasteStats() })
   }
 }

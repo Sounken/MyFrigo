@@ -17,6 +17,7 @@ type Props = {
   item: InventoryItem
   onConsume: () => void
   onTrash: () => void
+  onEdit: () => void
 }
 
 /**
@@ -28,7 +29,7 @@ type Props = {
  *
  * Left = eaten. Right = binned. Both are undoable.
  */
-export default function SwipeableItem({ item, onConsume, onTrash }: Props) {
+export default function SwipeableItem({ item, onConsume, onTrash, onEdit }: Props) {
   const x = useMotionValue(0)
 
   /** The action tints the row as you drag, so it commits before you let go. */
@@ -112,6 +113,19 @@ export default function SwipeableItem({ item, onConsume, onTrash }: Props) {
           </p>
           <p className="text-xs text-neutral-600">{formatDate(item.expiresAt)}</p>
         </div>
+
+        <button
+          type="button"
+          aria-label={`Modifier ${item.name}`}
+          onPointerDown={(event) => event.stopPropagation()}
+          onClick={(event) => {
+            event.stopPropagation()
+            onEdit()
+          }}
+          className="-mr-2 flex size-9 shrink-0 items-center justify-center rounded-full text-lg text-neutral-500 active:bg-neutral-800 active:text-white"
+        >
+          ⋯
+        </button>
       </motion.div>
     </div>
   )

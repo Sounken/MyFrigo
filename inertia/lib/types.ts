@@ -40,6 +40,24 @@ export type ExpiryEstimate = {
   categoryTag: string | null
 }
 
+export type ResolutionStats = {
+  consumed: number
+  trashed: number
+  total: number
+  wasteRate: number
+}
+
+export type WasteStats = {
+  allTime: ResolutionStats
+  last30Days: ResolutionStats
+  inventory: {
+    total: number
+    urgent: number
+    expired: number
+  }
+  topWasted: { name: string; count: number }[]
+}
+
 export type ScanResolution =
   | {
       status: 'found'

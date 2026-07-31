@@ -63,3 +63,7 @@ export function post<T>(url: string, body?: unknown): Promise<T> {
 export function patch<T>(url: string, body: unknown): Promise<T> {
   return api<T>(url, { method: 'PATCH', body: JSON.stringify(body) })
 }
+
+export function destroy(url: string): Promise<void> {
+  return api<void>(url, { method: 'DELETE' })
+}
