@@ -13,13 +13,17 @@ const loginValidator = vine.compile(
 
 export default class AuthController {
   showLogin({ inertia, session, response }: HttpContext) {
-    if (session.get(SESSION_AUTH_KEY) === true) {
+    if (env.get('AUTH_DISABLED', false) || session.get(SESSION_AUTH_KEY) === true) {
       return response.redirect('/')
     }
     return inertia.render('login')
   }
 
   async login({ request, response, session }: HttpContext) {
+    if (env.get('AUTH_DISABLED', false)) {
+      return response.redirect('/')
+    }
+
     const passwordHash = env.get('APP_PASSWORD_HASH')
     if (!passwordHash) {
       session.flash('error', 'APP_PASSWORD_HASH is not set. Run: node ace password:hash "…"')

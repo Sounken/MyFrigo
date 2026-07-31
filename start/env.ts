@@ -42,6 +42,8 @@ export default await Env.create(new URL('../', import.meta.url), {
   | Generate it with: node ace password:hash "your password"
   */
   APP_PASSWORD_HASH: Env.schema.string.optional(),
+  /** Temporary testing switch. Never leave enabled on a public deployment. */
+  AUTH_DISABLED: Env.schema.boolean.optional(),
 
   /*
   |----------------------------------------------------------

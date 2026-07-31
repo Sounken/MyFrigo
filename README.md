@@ -119,6 +119,7 @@ staging et production.
 ```
 APP_KEY=              # node ace generate:key
 APP_PASSWORD_HASH=    # node ace password:hash "…" — version NON échappée ici
+AUTH_DISABLED=false   # true uniquement pour une phase de test sans connexion
 DB_PATH=/app/storage/db.sqlite3
 TZ=Europe/Paris
 NODE_ENV=production
