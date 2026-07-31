@@ -59,6 +59,20 @@ export type WasteStats = {
   topWasted: { name: string; count: number }[]
 }
 
+export type ShoppingItem = {
+  id: number
+  name: string
+  barcode: string | null
+  checked: boolean
+  createdAt: string
+}
+
+export type ShoppingSuggestion = {
+  name: string
+  barcode: string
+  timesUsed: number
+}
+
 export type ScanResolution =
   | {
       status: 'found'

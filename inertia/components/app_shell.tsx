@@ -23,8 +23,9 @@ export default function AppShell({ title, action, children }: Props) {
       <main className="flex-1">{children}</main>
 
       <nav className="sticky bottom-0 z-20 border-t border-neutral-800/80 bg-neutral-950/95 pb-[env(safe-area-inset-bottom)] backdrop-blur">
-        <div className="grid grid-cols-3">
+        <div className="grid grid-cols-4">
           <NavLink href="/" label="Frigo" icon="🧊" />
+          <NavLink href="/shopping" label="Courses" icon="🛒" />
           <NavLink href="/scan" label="Scanner" icon="📷" />
           <NavLink href="/stats" label="Bilan" icon="📊" />
         </div>

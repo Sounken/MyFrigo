@@ -17,6 +17,7 @@ const ScanController = () => import('#controllers/scan_controller')
 const PushController = () => import('#controllers/push_controller')
 const StatsController = () => import('#controllers/stats_controller')
 const HistoryController = () => import('#controllers/history_controller')
+const ShoppingController = () => import('#controllers/shopping_controller')
 
 /** Unauthenticated on purpose: Coolify polls this to decide if the container is up. */
 router.get('/health', ({ response }) => response.ok({ status: 'ok' }))
@@ -31,6 +32,7 @@ router
     router.get('/scan', [ScanController, 'show']).as('scan')
     router.get('/stats', [StatsController, 'index']).as('stats')
     router.get('/history', [HistoryController, 'index']).as('history')
+    router.get('/shopping', [ShoppingController, 'index']).as('shopping')
 
     router
       .group(() => {
@@ -44,6 +46,11 @@ router
         router.post('/items/:id/restore', [ItemsController, 'restore'])
         router.delete('/items/:id', [ItemsController, 'destroy'])
         router.get('/stats', [ItemsController, 'stats'])
+
+        router.post('/shopping', [ShoppingController, 'store'])
+        router.patch('/shopping/:id', [ShoppingController, 'update'])
+        router.delete('/shopping/checked', [ShoppingController, 'clearChecked'])
+        router.delete('/shopping/:id', [ShoppingController, 'destroy'])
 
         router.post('/push/subscribe', [PushController, 'subscribe'])
         router.post('/push/unsubscribe', [PushController, 'unsubscribe'])
