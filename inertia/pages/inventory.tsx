@@ -1,4 +1,4 @@
-import { Head, Link } from '@inertiajs/react'
+import { Head, Link, router } from '@inertiajs/react'
 import { useCallback, useMemo, useRef, useState, type ReactNode } from 'react'
 import AppShell, { LogoutButton } from '~/components/app_shell'
 import EditItemDialog from '~/components/edit_item_dialog'
@@ -172,6 +172,7 @@ export default function InventoryPage({ items: initialItems, vapidPublicKey }: P
                   onConsume={() => resolve(item, 'consumed')}
                   onTrash={() => resolve(item, 'trashed')}
                   onEdit={() => setEditing(item)}
+                  onOpen={() => router.visit(`/products/${encodeURIComponent(item.barcode)}`)}
                 />
               ))}
             </section>

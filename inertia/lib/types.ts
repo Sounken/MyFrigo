@@ -59,18 +59,41 @@ export type WasteStats = {
   topWasted: { name: string; count: number }[]
 }
 
-export type ShoppingItem = {
-  id: number
+export type ProductDetails = {
+  barcode: string
   name: string
-  barcode: string | null
-  checked: boolean
-  createdAt: string
+  brands: string | null
+  quantityLabel: string | null
+  imageUrl: string | null
+  nutriscore: string | null
+  source: 'off' | 'manual' | 'weighed'
 }
 
-export type ShoppingSuggestion = {
-  name: string
+export type ProductExpiryProfile = {
+  location: ItemLocation
+  defaultDays: number
+  source: 'history' | 'category' | 'fallback'
+  observations: number
+  min: number | null
+  max: number | null
+}
+
+export type RecipeIngredient = {
+  id: number
   barcode: string
-  timesUsed: number
+  name: string
+  daysLeft: number
+}
+
+export type RecipeSuggestion = {
+  id: string
+  title: string
+  emoji: string
+  description: string
+  ingredients: RecipeIngredient[]
+  complements: string[]
+  steps: string[]
+  urgencyScore: number
 }
 
 export type ScanResolution =

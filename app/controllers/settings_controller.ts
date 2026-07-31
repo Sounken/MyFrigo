@@ -19,18 +19,17 @@ export default class SettingsController {
   }
 
   async export({ response }: HttpContext) {
-    const [products, items, shoppingItems] = await Promise.all([
+    const [products, items] = await Promise.all([
       db.from('products').select('*').orderBy('barcode'),
       db.from('items').select('*').orderBy('id'),
-      db.from('shopping_items').select('*').orderBy('id'),
     ])
 
     const exportedAt = DateTime.now().toUTC()
     const backup = {
       format: 'myfrigo-backup',
-      version: 1,
+      version: 2,
       exportedAt: exportedAt.toISO(),
-      data: { products, items, shoppingItems },
+      data: { products, items },
     }
 
     response.header(

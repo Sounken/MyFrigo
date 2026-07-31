@@ -8,9 +8,7 @@ type Props = {
   children: ReactNode
 }
 
-/**
- * The three daily destinations stay reachable with a thumb.
- */
+/** The daily destinations stay reachable with a thumb. */
 export default function AppShell({ title, action, children }: Props) {
   return (
     <div className="flex min-h-[100dvh] flex-col bg-neutral-950">
@@ -28,7 +26,7 @@ export default function AppShell({ title, action, children }: Props) {
       <nav className="sticky bottom-0 z-20 border-t border-neutral-800/80 bg-neutral-950/95 pb-[env(safe-area-inset-bottom)] backdrop-blur">
         <div className="grid grid-cols-4">
           <NavLink href="/" label="Frigo" icon="🧊" />
-          <NavLink href="/shopping" label="Courses" icon="🛒" />
+          <NavLink href="/recipes" label="Recettes" icon="🍳" />
           <NavLink href="/scan" label="Scanner" icon="📷" />
           <NavLink href="/stats" label="Bilan" icon="📊" />
         </div>
@@ -40,7 +38,9 @@ export default function AppShell({ title, action, children }: Props) {
 function NavLink({ href, label, icon }: { href: string; label: string; icon: string }) {
   const pathname = typeof window !== 'undefined' ? window.location.pathname : ''
   const active =
-    pathname === href || (href === '/stats' && ['/history', '/settings'].includes(pathname))
+    pathname === href ||
+    (href === '/' && pathname.startsWith('/products/')) ||
+    (href === '/stats' && ['/history', '/settings'].includes(pathname))
 
   return (
     <Link
