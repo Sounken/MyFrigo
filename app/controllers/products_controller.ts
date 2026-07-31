@@ -5,6 +5,7 @@ import { serializeItem } from '#controllers/items_controller'
 import { estimate } from '#services/expiry_estimator'
 import { enrichComposition } from '#services/open_food_facts'
 import { calculateProductQuality } from '#services/product_quality'
+import { describeAdditives } from '#services/additives'
 
 const LOCATIONS: ItemLocation[] = ['fridge', 'freezer', 'pantry']
 
@@ -50,6 +51,7 @@ export default class ProductsController {
         ingredientsText: product.ingredientsText,
         allergensTags: product.allergensTags ?? [],
         additivesTags: product.additivesTags ?? [],
+        additives: describeAdditives(product.additivesTags ?? []),
         labelsTags: product.labelsTags ?? [],
         novaGroup: product.novaGroup,
         nutrientLevels: product.nutrientLevels,

@@ -5,6 +5,7 @@ import EditItemDialog from '~/components/edit_item_dialog'
 import { formatDate, relativeLabel, urgencyOf } from '~/lib/dates'
 import {
   LOCATION_LABELS,
+  type AdditiveInfo,
   type InventoryItem,
   type ProductDetails,
   type ProductExpiryProfile,
@@ -35,6 +36,7 @@ export default function ProductPage({
 }: Props) {
   const [stock, setStock] = useState(initialStock)
   const [editing, setEditing] = useState<InventoryItem | null>(null)
+  const [selectedAdditive, setSelectedAdditive] = useState<AdditiveInfo | null>(null)
   const totalResolved = stats.consumed + stats.trashed
 
   return (
@@ -89,7 +91,7 @@ export default function ProductPage({
         </p>
       </section>
 
-      <CompositionSection product={product} />
+      <CompositionSection product={product} onSelectAdditive={setSelectedAdditive} />
 
       <section className="border-b border-neutral-800 px-4 py-5">
         <div className="mb-3 flex items-center justify-between">
@@ -210,6 +212,10 @@ export default function ProductPage({
           }}
         />
       )}
+
+      {selectedAdditive && (
+        <AdditiveSheet additive={selectedAdditive} onClose={() => setSelectedAdditive(null)} />
+      )}
     </AppShell>
   )
 }
@@ -231,7 +237,13 @@ function StatCard({ value, label, tone }: { value: number; label: string; tone: 
   )
 }
 
-function CompositionSection({ product }: { product: ProductDetails }) {
+function CompositionSection({
+  product,
+  onSelectAdditive,
+}: {
+  product: ProductDetails
+  onSelectAdditive: (additive: AdditiveInfo) => void
+}) {
   const { quality } = product
 
   if (!product.compositionAvailable) {
@@ -273,8 +285,8 @@ function CompositionSection({ product }: { product: ProductDetails }) {
                 {component.score === null
                   ? component.id === 'additives'
                     ? product.additivesTags.length > 0
-                      ? `${product.additivesTags.length} détecté${product.additivesTags.length > 1 ? 's' : ''} · risque non classifié`
-                      : 'risque non classifié'
+                      ? `${product.additives.length} fiche${product.additives.length > 1 ? 's' : ''} · risque non classifié`
+                      : 'non renseigné'
                     : 'non renseigné'
                   : `${Math.round(component.score)}/100`}
               </span>
@@ -344,14 +356,25 @@ function CompositionSection({ product }: { product: ProductDetails }) {
               </span>
             </p>
           )}
-          <p>
-            <span className="text-neutral-500">Additifs · </span>
-            <span className="text-neutral-300">
-              {product.additivesTags.length > 0
-                ? product.additivesTags.map(formatFoodTag).join(', ')
-                : 'aucun déclaré'}
-            </span>
-          </p>
+          <div>
+            <p className="text-neutral-500">Additifs ·</p>
+            {product.additives.length > 0 ? (
+              <div className="mt-2 flex flex-wrap gap-2">
+                {product.additives.map((additive) => (
+                  <button
+                    key={additive.code}
+                    type="button"
+                    onClick={() => onSelectAdditive(additive)}
+                    className={`rounded-full px-3 py-1.5 font-medium transition-colors active:opacity-70 ${additiveChip(additive.riskLevel)}`}
+                  >
+                    {additive.code.toUpperCase()}
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <p className="mt-1 text-neutral-300">aucun déclaré</p>
+            )}
+          </div>
         </div>
       )}
 
@@ -407,4 +430,71 @@ const FOOD_TAG_LABELS: Record<string, string> = {
 function formatFoodTag(tag: string) {
   const value = tag.replace(/^[a-z]{2}:/, '')
   return FOOD_TAG_LABELS[value] ?? value.replaceAll('-', ' ')
+}
+
+function additiveChip(level: AdditiveInfo['riskLevel']) {
+  if (level === 'low') return 'bg-emerald-500/15 text-emerald-300'
+  if (level === 'attention') return 'bg-orange-500/15 text-orange-300'
+  return 'bg-neutral-800 text-neutral-300'
+}
+
+function AdditiveSheet({ additive, onClose }: { additive: AdditiveInfo; onClose: () => void }) {
+  return (
+    <div
+      className="fixed inset-0 z-40 flex items-end bg-black/60"
+      role="presentation"
+      onClick={onClose}
+    >
+      <section
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="additive-title"
+        onClick={(event) => event.stopPropagation()}
+        className="w-full rounded-t-3xl border-t border-neutral-700 bg-neutral-900 px-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] pt-4 shadow-2xl"
+      >
+        <div className="mx-auto mb-4 h-1 w-10 rounded-full bg-neutral-700" />
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <p className="font-mono text-sm text-emerald-400">{additive.code.toUpperCase()}</p>
+            <h2 id="additive-title" className="mt-1 text-lg font-semibold">
+              {additive.name}
+            </h2>
+          </div>
+          <button
+            type="button"
+            aria-label="Fermer la fiche additif"
+            onClick={onClose}
+            className="flex size-9 items-center justify-center rounded-full bg-neutral-800 text-lg text-neutral-400 active:bg-neutral-700"
+          >
+            ×
+          </button>
+        </div>
+
+        <div className="mt-4 flex flex-wrap gap-2">
+          <span
+            className={`rounded-full px-3 py-1.5 text-xs font-semibold ${additiveChip(additive.riskLevel)}`}
+          >
+            {additive.riskLabel}
+          </span>
+          <span className="rounded-full bg-neutral-800 px-3 py-1.5 text-xs text-neutral-300">
+            {additive.functionLabel}
+          </span>
+        </div>
+
+        <p className="mt-5 text-sm leading-relaxed text-neutral-300">{additive.description}</p>
+        <p className="mt-4 text-[11px] leading-relaxed text-neutral-600">
+          « Faible » signifie ici qu’aucun signal particulier n’est affiché dans le référentiel
+          MyFrigo et que l’usage est autorisé sous conditions. Ce n’est pas une garantie médicale.
+        </p>
+        <a
+          href={additive.sourceUrl}
+          target="_blank"
+          rel="noreferrer"
+          className="mt-4 inline-block text-xs text-emerald-400 underline"
+        >
+          Voir la source européenne
+        </a>
+      </section>
+    </div>
+  )
 }

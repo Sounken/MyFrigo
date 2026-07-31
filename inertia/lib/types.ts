@@ -70,6 +70,7 @@ export type ProductDetails = {
   ingredientsText: string | null
   allergensTags: string[]
   additivesTags: string[]
+  additives: AdditiveInfo[]
   labelsTags: string[]
   novaGroup: number | null
   nutrientLevels: Partial<
@@ -101,6 +102,16 @@ export type ProductDetails = {
     }[]
   }
   compositionAvailable: boolean
+}
+
+export type AdditiveInfo = {
+  code: string
+  name: string
+  functionLabel: string
+  riskLevel: 'low' | 'attention' | 'unknown'
+  riskLabel: string
+  description: string
+  sourceUrl: string
 }
 
 export type ProductExpiryProfile = {
