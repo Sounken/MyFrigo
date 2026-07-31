@@ -264,6 +264,11 @@ function CompositionSection({
 }) {
   const { quality } = product
   const additivePresence = additivePresenceScore(product.additives.length)
+  const novaComponent = quality.components.find((component) => component.id === 'nova')
+  const transformationScore = transformationIntensity(
+    product.novaGroup,
+    novaComponent?.score ?? null
+  )
 
   if (!product.compositionAvailable) {
     return (
@@ -297,23 +302,34 @@ function CompositionSection({
 
       <div className="mt-4 space-y-3 rounded-2xl bg-neutral-900 p-4">
         {quality.components.map((component) => {
+          /** Hide the transformation row entirely when no reliable NOVA signal exists. */
+          if (component.id === 'nova' && transformationScore === null) return null
+
           const isClickableAdditives = component.id === 'additives' && product.additives.length > 0
+          const displayedScore = component.id === 'nova' ? transformationScore : component.score
           const content = (
             <>
               <div className="flex items-center justify-between gap-3 text-xs">
-                <span className="text-neutral-300">{component.label}</span>
+                <span className="text-neutral-300">
+                  {component.id === 'nova' ? 'Transformation (intensité)' : component.label}
+                </span>
                 <span className="text-neutral-500">
-                  {component.score === null
+                  {displayedScore === null
                     ? component.id === 'additives'
                       ? product.additivesTags.length > 0
                         ? `${product.additives.length} fiche${product.additives.length > 1 ? 's' : ''} · présence ${additivePresence}%`
                         : 'non renseigné'
                       : 'non renseigné'
-                    : `${Math.round(component.score)}/100`}
+                    : `${Math.round(displayedScore)}/100`}
                 </span>
               </div>
               <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-neutral-800">
-                {component.score !== null ? (
+                {component.id === 'nova' && displayedScore !== null ? (
+                  <div
+                    className={`h-full rounded-full ${transformationBar(displayedScore)}`}
+                    style={{ width: `${displayedScore}%` }}
+                  />
+                ) : component.score !== null ? (
                   <div
                     className={`h-full rounded-full ${scoreBar(component.score)}`}
                     style={{ width: `${component.score}%` }}
@@ -487,6 +503,22 @@ function additiveChip(level: AdditiveInfo['riskLevel']) {
 function additivePresenceScore(count: number) {
   if (count <= 0) return 0
   return Math.min(100, Math.max(65, count * 20))
+}
+
+function transformationIntensity(group: number | null, qualityScore: number | null) {
+  if (qualityScore === null) return null
+  if (group === 1) return 0
+  if (group === 2) return 30
+  if (group === 3) return 65
+  if (group === 4) return 100
+  return 100 - qualityScore
+}
+
+function transformationBar(score: number) {
+  if (score >= 76) return 'bg-red-500'
+  if (score >= 51) return 'bg-orange-500'
+  if (score >= 26) return 'bg-yellow-400'
+  return 'bg-emerald-500'
 }
 
 function AdditiveSheet({ additive, onClose }: { additive: AdditiveInfo; onClose: () => void }) {

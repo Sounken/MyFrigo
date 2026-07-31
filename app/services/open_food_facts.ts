@@ -37,7 +37,7 @@ const FIELDS = [
 ].join(',')
 
 const TIMEOUT_MS = 6000
-const COMPOSITION_VERSION = 2
+const COMPOSITION_VERSION = 3
 
 type OffAttribute = {
   id?: string
@@ -176,7 +176,10 @@ function compositionData(off: OffProduct) {
       count === 0 ? 'Aucun additif déclaré' : `${count} additif${count > 1 ? 's' : ''}`
   }
 
-  if (off.nova_group) {
+  const hasIngredientEvidence = Boolean(
+    off.ingredients_text_fr?.trim() || off.ingredients_text?.trim()
+  )
+  if (off.nova_group && hasIngredientEvidence) {
     qualityAttributes.nova ??= novaFallback(off.nova_group)
   }
 

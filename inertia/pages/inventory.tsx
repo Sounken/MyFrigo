@@ -4,9 +4,14 @@ import AppShell, { LogoutButton } from '~/components/app_shell'
 import EditItemDialog from '~/components/edit_item_dialog'
 import PushPrompt from '~/components/push_prompt'
 import SwipeableItem from '~/components/swipeable_item'
-import { post } from '~/lib/api'
+import { api, post } from '~/lib/api'
 import { urgencyOf, type Urgency } from '~/lib/dates'
-import { LOCATION_LABELS, type InventoryItem, type ItemLocation } from '~/lib/types'
+import {
+  LOCATION_LABELS,
+  type InventoryItem,
+  type ItemLocation,
+  type ProductDetails,
+} from '~/lib/types'
 
 type Props = {
   items: InventoryItem[]
@@ -27,6 +32,9 @@ export default function InventoryPage({ items: initialItems, vapidPublicKey }: P
   const [items, setItems] = useState(initialItems)
   const [undo, setUndo] = useState<{ item: InventoryItem; label: string } | null>(null)
   const [editing, setEditing] = useState<InventoryItem | null>(null)
+  const [previewBarcode, setPreviewBarcode] = useState<string | null>(null)
+  const [previewProduct, setPreviewProduct] = useState<ProductDetails | null>(null)
+  const [previewLoading, setPreviewLoading] = useState(false)
   const [query, setQuery] = useState('')
   const [location, setLocation] = useState<'all' | ItemLocation>('all')
   const undoTimer = useRef<number | null>(null)
@@ -82,6 +90,29 @@ export default function InventoryPage({ items: initialItems, vapidPublicKey }: P
       setItems((current) => current.filter((candidate) => candidate.id !== item.id))
     }
   }, [undo])
+
+  const openProductPreview = useCallback(async (barcode: string) => {
+    setPreviewBarcode(barcode)
+    setPreviewProduct(null)
+    setPreviewLoading(true)
+    try {
+      const payload = await api<{ product: ProductDetails }>(
+        `/api/products/${encodeURIComponent(barcode)}`
+      )
+      setPreviewProduct(payload.product)
+    } catch {
+      /** Keep the full page available if a preview request fails. */
+      router.visit(`/products/${encodeURIComponent(barcode)}`)
+      setPreviewBarcode(null)
+    } finally {
+      setPreviewLoading(false)
+    }
+  }, [])
+
+  const closeProductPreview = useCallback(() => {
+    setPreviewBarcode(null)
+    setPreviewProduct(null)
+  }, [])
 
   return (
     <AppShell title="Mon frigo" action={<LogoutButton />}>
@@ -172,7 +203,7 @@ export default function InventoryPage({ items: initialItems, vapidPublicKey }: P
                   onConsume={() => resolve(item, 'consumed')}
                   onTrash={() => resolve(item, 'trashed')}
                   onEdit={() => setEditing(item)}
-                  onOpen={() => router.visit(`/products/${encodeURIComponent(item.barcode)}`)}
+                  onOpen={() => void openProductPreview(item.barcode)}
                 />
               ))}
             </section>
@@ -217,6 +248,15 @@ export default function InventoryPage({ items: initialItems, vapidPublicKey }: P
             setItems((current) => current.filter((item) => item.id !== deleted.id))
             setEditing(null)
           }}
+        />
+      )}
+
+      {previewBarcode && (
+        <ProductPreviewSheet
+          product={previewProduct}
+          loading={previewLoading}
+          onClose={closeProductPreview}
+          onDetails={() => router.visit(`/products/${encodeURIComponent(previewBarcode)}`)}
         />
       )}
 
@@ -268,4 +308,136 @@ function FilterButton({
       {children}
     </button>
   )
+}
+
+function ProductPreviewSheet({
+  product,
+  loading,
+  onClose,
+  onDetails,
+}: {
+  product: ProductDetails | null
+  loading: boolean
+  onClose: () => void
+  onDetails: () => void
+}) {
+  return (
+    <div
+      className="fixed inset-0 z-40 flex items-end bg-black/60"
+      role="presentation"
+      onClick={onClose}
+    >
+      <section
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="product-preview-title"
+        onClick={(event) => event.stopPropagation()}
+        className="max-h-[88vh] w-full overflow-y-auto rounded-t-3xl border-t border-neutral-700 bg-neutral-900 px-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] pt-4 shadow-2xl"
+      >
+        <div className="mx-auto mb-4 h-1 w-10 rounded-full bg-neutral-700" />
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <p className="text-xs text-neutral-500">Aperçu produit</p>
+            <h2 id="product-preview-title" className="mt-1 text-lg font-semibold">
+              {product?.name ?? 'Chargement…'}
+            </h2>
+          </div>
+          <button
+            type="button"
+            aria-label="Fermer l’aperçu produit"
+            onClick={onClose}
+            className="flex size-9 items-center justify-center rounded-full bg-neutral-800 text-lg text-neutral-400 active:bg-neutral-700"
+          >
+            ×
+          </button>
+        </div>
+
+        {loading || !product ? (
+          <div className="flex items-center justify-center py-14 text-sm text-neutral-500">
+            Chargement de la composition…
+          </div>
+        ) : (
+          <>
+            <div className="mt-5 flex items-start gap-3">
+              {product.imageUrl ? (
+                <img
+                  src={product.imageUrl}
+                  alt=""
+                  className="size-16 shrink-0 rounded-2xl bg-white object-contain p-1"
+                />
+              ) : (
+                <div className="flex size-16 shrink-0 items-center justify-center rounded-2xl bg-neutral-800 text-2xl">
+                  📦
+                </div>
+              )}
+              <div className="min-w-0">
+                {product.brands && <p className="text-sm text-neutral-400">{product.brands}</p>}
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {product.nutriscore && (
+                    <span className="rounded-full bg-neutral-800 px-2.5 py-1 text-xs text-neutral-300">
+                      Nutri-score {product.nutriscore.toUpperCase()}
+                    </span>
+                  )}
+                  {product.novaGroup && (
+                    <span className="rounded-full bg-neutral-800 px-2.5 py-1 text-xs text-neutral-300">
+                      {novaLabel(product.novaGroup)}
+                    </span>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {product.ingredientsText ? (
+              <div className="mt-5 rounded-2xl bg-neutral-800/70 p-3">
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-neutral-500">
+                  Ingrédients
+                </p>
+                <p className="mt-2 text-sm leading-relaxed text-neutral-300">
+                  {product.ingredientsText}
+                </p>
+              </div>
+            ) : (
+              <p className="mt-5 text-sm text-neutral-500">Composition non renseignée.</p>
+            )}
+
+            {product.additives.length > 0 && (
+              <div className="mt-4">
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-neutral-500">
+                  Additifs détectés
+                </p>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {product.additives.map((additive) => (
+                    <span
+                      key={additive.code}
+                      className="rounded-full bg-neutral-800 px-3 py-1.5 text-xs text-neutral-300"
+                    >
+                      {additive.code.toUpperCase()}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <button
+              type="button"
+              onClick={onDetails}
+              className="mt-6 w-full rounded-2xl bg-emerald-500 px-5 py-3.5 text-center font-semibold text-neutral-950 active:bg-emerald-400"
+            >
+              Détail aliment
+            </button>
+          </>
+        )}
+      </section>
+    </div>
+  )
+}
+
+function novaLabel(group: number) {
+  const labels: Record<number, string> = {
+    1: 'Peu transformé',
+    2: 'Ingrédient transformé',
+    3: 'Transformé',
+    4: 'Ultra-transformé',
+  }
+  return labels[group] ?? `NOVA ${group}`
 }

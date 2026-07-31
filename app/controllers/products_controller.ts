@@ -10,6 +10,12 @@ import { describeAdditives } from '#services/additives'
 const LOCATIONS: ItemLocation[] = ['fridge', 'freezer', 'pantry']
 
 export default class ProductsController {
+  async apiShow({ params, response }: HttpContext) {
+    let product = await Product.findOrFail(params.barcode)
+    product = await enrichComposition(product)
+    return response.send({ product: serializeProduct(product) })
+  }
+
   async show({ params, inertia }: HttpContext) {
     let product = await Product.findOrFail(params.barcode)
     product = await enrichComposition(product)
@@ -40,27 +46,7 @@ export default class ProductsController {
     }
 
     return inertia.render('product', {
-      product: {
-        barcode: product.barcode,
-        name: product.name,
-        brands: product.brands,
-        quantityLabel: product.quantityLabel,
-        imageUrl: product.imageUrl,
-        nutriscore: product.nutriscore,
-        source: product.source,
-        ingredientsText: product.ingredientsText,
-        allergensTags: product.allergensTags ?? [],
-        additivesTags: product.additivesTags ?? [],
-        additives: describeAdditives(product.additivesTags ?? []),
-        labelsTags: product.labelsTags ?? [],
-        novaGroup: product.novaGroup,
-        nutrientLevels: product.nutrientLevels,
-        nutriments: product.nutriments,
-        quality: calculateProductQuality(product.qualityAttributes),
-        compositionAvailable: Boolean(
-          product.ingredientsText || product.nutriments || product.qualityAttributes
-        ),
-      },
+      product: serializeProduct(product),
       stock: stock.map(serializeItem),
       recentHistory: resolved.slice(0, 12).map(serializeItem),
       stats: {
@@ -69,5 +55,29 @@ export default class ProductsController {
       },
       expiryProfiles,
     })
+  }
+}
+
+export function serializeProduct(product: Product) {
+  return {
+    barcode: product.barcode,
+    name: product.name,
+    brands: product.brands,
+    quantityLabel: product.quantityLabel,
+    imageUrl: product.imageUrl,
+    nutriscore: product.nutriscore,
+    source: product.source,
+    ingredientsText: product.ingredientsText,
+    allergensTags: product.allergensTags ?? [],
+    additivesTags: product.additivesTags ?? [],
+    additives: describeAdditives(product.additivesTags ?? []),
+    labelsTags: product.labelsTags ?? [],
+    novaGroup: product.novaGroup,
+    nutrientLevels: product.nutrientLevels,
+    nutriments: product.nutriments,
+    quality: calculateProductQuality(product.qualityAttributes),
+    compositionAvailable: Boolean(
+      product.ingredientsText || product.nutriments || product.qualityAttributes
+    ),
   }
 }

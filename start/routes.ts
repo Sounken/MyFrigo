@@ -42,6 +42,7 @@ router
     router
       .group(() => {
         router.post('/scan', [ScanController, 'resolve'])
+        router.get('/products/:barcode', [ProductsController, 'apiShow'])
 
         router.post('/items', [ItemsController, 'store'])
         router.patch('/items/:id', [ItemsController, 'update'])
