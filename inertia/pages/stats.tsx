@@ -1,4 +1,4 @@
-import { Head } from '@inertiajs/react'
+import { Head, Link } from '@inertiajs/react'
 import AppShell, { LogoutButton } from '~/components/app_shell'
 import type { ResolutionStats, WasteStats } from '~/lib/types'
 
@@ -16,6 +16,19 @@ export default function StatsPage({ stats }: { stats: WasteStats }) {
 
         <ResolutionCard title="Ces 30 derniers jours" stats={stats.last30Days} featured />
         <ResolutionCard title="Depuis le début" stats={stats.allTime} />
+
+        <Link
+          href="/history"
+          className="flex items-center justify-between rounded-2xl border border-neutral-800 bg-neutral-900 px-4 py-4 active:bg-neutral-800"
+        >
+          <span>
+            <span className="block font-semibold">Historique des sorties</span>
+            <span className="mt-0.5 block text-xs text-neutral-500">
+              Retrouver ou restaurer un produit
+            </span>
+          </span>
+          <span className="text-neutral-500">→</span>
+        </Link>
 
         <section className="rounded-2xl border border-neutral-800 bg-neutral-900 p-4">
           <div className="mb-4 flex items-baseline justify-between">

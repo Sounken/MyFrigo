@@ -12,6 +12,7 @@ export type InventoryItem = {
   daysLeft: number
   location: ItemLocation
   status: ItemStatus
+  resolvedAt: string | null
 }
 
 export type ScannedProduct = {

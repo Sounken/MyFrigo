@@ -16,6 +16,7 @@ const ItemsController = () => import('#controllers/items_controller')
 const ScanController = () => import('#controllers/scan_controller')
 const PushController = () => import('#controllers/push_controller')
 const StatsController = () => import('#controllers/stats_controller')
+const HistoryController = () => import('#controllers/history_controller')
 
 /** Unauthenticated on purpose: Coolify polls this to decide if the container is up. */
 router.get('/health', ({ response }) => response.ok({ status: 'ok' }))
@@ -29,6 +30,7 @@ router
     router.get('/', [InventoryController, 'index']).as('inventory')
     router.get('/scan', [ScanController, 'show']).as('scan')
     router.get('/stats', [StatsController, 'index']).as('stats')
+    router.get('/history', [HistoryController, 'index']).as('history')
 
     router
       .group(() => {

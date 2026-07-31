@@ -17,6 +17,7 @@ export function serializeItem(item: Item) {
     daysLeft: item.daysLeft,
     location: item.location,
     status: item.status,
+    resolvedAt: item.resolvedAt?.toISO() ?? null,
   }
 }
 
