@@ -108,7 +108,7 @@ export type AdditiveInfo = {
   code: string
   name: string
   functionLabel: string
-  riskLevel: 'low' | 'attention' | 'unknown'
+  riskLevel: 'low' | 'attention' | 'dangerous' | 'unknown'
   riskLabel: string
   description: string
   sourceUrl: string

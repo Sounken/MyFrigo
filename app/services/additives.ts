@@ -1,4 +1,4 @@
-export type AdditiveRiskLevel = 'low' | 'attention' | 'unknown'
+export type AdditiveRiskLevel = 'low' | 'attention' | 'dangerous' | 'unknown'
 
 export type AdditiveInfo = {
   code: string
@@ -47,7 +47,7 @@ const KNOWN: Record<string, Omit<AdditiveInfo, 'code' | 'sourceUrl'>> = {
     name: 'Carraghénanes',
     functionLabel: 'Gélifiant / épaississant',
     riskLevel: 'attention',
-    riskLabel: 'À surveiller · données discutées',
+    riskLabel: 'Moyen · à surveiller',
     description:
       'Épaississant extrait d’algues. Son évaluation dépend de la forme utilisée et des conditions d’exposition ; MyFrigo ne le présente pas comme dangereux au seul vu de son numéro E.',
   },
@@ -55,7 +55,7 @@ const KNOWN: Record<string, Omit<AdditiveInfo, 'code' | 'sourceUrl'>> = {
     name: 'Mono- et diglycérides d’acides gras',
     functionLabel: 'Émulsifiant / stabilisant',
     riskLevel: 'attention',
-    riskLabel: 'À surveiller · évaluation à vérifier',
+    riskLabel: 'Moyen · évaluation à vérifier',
     description:
       'Émulsifiant utilisé pour stabiliser la texture. La fiche invite à consulter l’évaluation actuelle plutôt qu’à conclure automatiquement à un danger.',
   },

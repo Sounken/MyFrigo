@@ -37,6 +37,7 @@ export default function ProductPage({
   const [stock, setStock] = useState(initialStock)
   const [editing, setEditing] = useState<InventoryItem | null>(null)
   const [selectedAdditive, setSelectedAdditive] = useState<AdditiveInfo | null>(null)
+  const [showAdditives, setShowAdditives] = useState(false)
   const totalResolved = stats.consumed + stats.trashed
 
   return (
@@ -91,7 +92,11 @@ export default function ProductPage({
         </p>
       </section>
 
-      <CompositionSection product={product} onSelectAdditive={setSelectedAdditive} />
+      <CompositionSection
+        product={product}
+        onSelectAdditive={setSelectedAdditive}
+        onShowAdditives={() => setShowAdditives(true)}
+      />
 
       <section className="border-b border-neutral-800 px-4 py-5">
         <div className="mb-3 flex items-center justify-between">
@@ -216,6 +221,17 @@ export default function ProductPage({
       {selectedAdditive && (
         <AdditiveSheet additive={selectedAdditive} onClose={() => setSelectedAdditive(null)} />
       )}
+
+      {showAdditives && (
+        <AdditivesListSheet
+          additives={product.additives}
+          onClose={() => setShowAdditives(false)}
+          onSelect={(additive) => {
+            setShowAdditives(false)
+            setSelectedAdditive(additive)
+          }}
+        />
+      )}
     </AppShell>
   )
 }
@@ -240,11 +256,14 @@ function StatCard({ value, label, tone }: { value: number; label: string; tone: 
 function CompositionSection({
   product,
   onSelectAdditive,
+  onShowAdditives,
 }: {
   product: ProductDetails
   onSelectAdditive: (additive: AdditiveInfo) => void
+  onShowAdditives: () => void
 }) {
   const { quality } = product
+  const additivePresence = additivePresenceScore(product.additives.length)
 
   if (!product.compositionAvailable) {
     return (
@@ -264,7 +283,7 @@ function CompositionSection({
         <div>
           <h2 className="font-semibold">Indice composition</h2>
           <p className="mt-1 text-[10px] text-neutral-500">
-            Nutrition 60 % · Transformation 20 % · Additifs 20 %
+            Nutrition 60 % · Transformation 20 % · Additifs : présence
           </p>
         </div>
         <div className={`shrink-0 text-right ${scoreTone(quality.score)}`}>
@@ -277,33 +296,58 @@ function CompositionSection({
       </div>
 
       <div className="mt-4 space-y-3 rounded-2xl bg-neutral-900 p-4">
-        {quality.components.map((component) => (
-          <div key={component.id}>
-            <div className="flex items-center justify-between gap-3 text-xs">
-              <span className="text-neutral-300">{component.label}</span>
-              <span className="text-neutral-500">
-                {component.score === null
-                  ? component.id === 'additives'
-                    ? product.additivesTags.length > 0
-                      ? `${product.additives.length} fiche${product.additives.length > 1 ? 's' : ''} · risque non classifié`
+        {quality.components.map((component) => {
+          const isClickableAdditives = component.id === 'additives' && product.additives.length > 0
+          const content = (
+            <>
+              <div className="flex items-center justify-between gap-3 text-xs">
+                <span className="text-neutral-300">{component.label}</span>
+                <span className="text-neutral-500">
+                  {component.score === null
+                    ? component.id === 'additives'
+                      ? product.additivesTags.length > 0
+                        ? `${product.additives.length} fiche${product.additives.length > 1 ? 's' : ''} · présence ${additivePresence}%`
+                        : 'non renseigné'
                       : 'non renseigné'
-                    : 'non renseigné'
-                  : `${Math.round(component.score)}/100`}
-              </span>
-            </div>
-            <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-neutral-800">
-              {component.score !== null && (
-                <div
-                  className={`h-full rounded-full ${scoreBar(component.score)}`}
-                  style={{ width: `${component.score}%` }}
-                />
+                    : `${Math.round(component.score)}/100`}
+                </span>
+              </div>
+              <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-neutral-800">
+                {component.score !== null ? (
+                  <div
+                    className={`h-full rounded-full ${scoreBar(component.score)}`}
+                    style={{ width: `${component.score}%` }}
+                  />
+                ) : component.id === 'additives' && additivePresence > 0 ? (
+                  <div
+                    className="h-full rounded-full bg-amber-400"
+                    style={{ width: `${additivePresence}%` }}
+                  />
+                ) : null}
+              </div>
+            </>
+          )
+
+          return (
+            <div key={component.id}>
+              {isClickableAdditives ? (
+                <button
+                  type="button"
+                  onClick={onShowAdditives}
+                  className="block w-full rounded-lg text-left active:bg-neutral-800/70"
+                  aria-label="Afficher les additifs détectés"
+                >
+                  {content}
+                </button>
+              ) : (
+                content
+              )}
+              {component.title && (
+                <p className="mt-1 text-[10px] text-neutral-600">{component.title}</p>
               )}
             </div>
-            {component.title && (
-              <p className="mt-1 text-[10px] text-neutral-600">{component.title}</p>
-            )}
-          </div>
-        ))}
+          )
+        })}
       </div>
 
       {quality.partial && quality.score !== null && (
@@ -433,9 +477,16 @@ function formatFoodTag(tag: string) {
 }
 
 function additiveChip(level: AdditiveInfo['riskLevel']) {
-  if (level === 'low') return 'bg-emerald-500/15 text-emerald-300'
+  if (level === 'low') return 'bg-yellow-500/15 text-yellow-300'
   if (level === 'attention') return 'bg-orange-500/15 text-orange-300'
+  if (level === 'dangerous') return 'bg-red-500/15 text-red-300'
   return 'bg-neutral-800 text-neutral-300'
+}
+
+/** Presence indicator only: it never contributes to the product quality score. */
+function additivePresenceScore(count: number) {
+  if (count <= 0) return 0
+  return Math.min(100, Math.max(65, count * 20))
 }
 
 function AdditiveSheet({ additive, onClose }: { additive: AdditiveInfo; onClose: () => void }) {
@@ -483,8 +534,8 @@ function AdditiveSheet({ additive, onClose }: { additive: AdditiveInfo; onClose:
 
         <p className="mt-5 text-sm leading-relaxed text-neutral-300">{additive.description}</p>
         <p className="mt-4 text-[11px] leading-relaxed text-neutral-600">
-          « Faible » signifie ici qu’aucun signal particulier n’est affiché dans le référentiel
-          MyFrigo et que l’usage est autorisé sous conditions. Ce n’est pas une garantie médicale.
+          Ce niveau est une synthèse prudente du référentiel MyFrigo, distincte d’un avis médical.
+          L’autorisation européenne dépend toujours des conditions d’emploi et de l’exposition.
         </p>
         <a
           href={additive.sourceUrl}
@@ -494,6 +545,76 @@ function AdditiveSheet({ additive, onClose }: { additive: AdditiveInfo; onClose:
         >
           Voir la source européenne
         </a>
+      </section>
+    </div>
+  )
+}
+
+function AdditivesListSheet({
+  additives,
+  onClose,
+  onSelect,
+}: {
+  additives: AdditiveInfo[]
+  onClose: () => void
+  onSelect: (additive: AdditiveInfo) => void
+}) {
+  return (
+    <div
+      className="fixed inset-0 z-40 flex items-end bg-black/60"
+      role="presentation"
+      onClick={onClose}
+    >
+      <section
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="additives-list-title"
+        onClick={(event) => event.stopPropagation()}
+        className="w-full rounded-t-3xl border-t border-neutral-700 bg-neutral-900 px-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] pt-4 shadow-2xl"
+      >
+        <div className="mx-auto mb-4 h-1 w-10 rounded-full bg-neutral-700" />
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <p className="text-xs text-neutral-500">Composition</p>
+            <h2 id="additives-list-title" className="mt-1 text-lg font-semibold">
+              Additifs détectés
+            </h2>
+          </div>
+          <button
+            type="button"
+            aria-label="Fermer la liste des additifs"
+            onClick={onClose}
+            className="flex size-9 items-center justify-center rounded-full bg-neutral-800 text-lg text-neutral-400 active:bg-neutral-700"
+          >
+            ×
+          </button>
+        </div>
+
+        <p className="mt-3 text-xs leading-relaxed text-neutral-500">
+          Appuie sur un code pour voir sa fonction et son niveau de risque.
+        </p>
+        <div className="mt-4 space-y-2">
+          {additives.map((additive) => (
+            <button
+              key={additive.code}
+              type="button"
+              onClick={() => onSelect(additive)}
+              className="flex w-full items-center justify-between gap-3 rounded-2xl bg-neutral-800 px-4 py-3 text-left active:bg-neutral-700"
+            >
+              <span>
+                <span className="block font-mono text-sm text-neutral-200">
+                  {additive.code.toUpperCase()}
+                </span>
+                <span className="mt-0.5 block text-xs text-neutral-400">{additive.name}</span>
+              </span>
+              <span
+                className={`shrink-0 rounded-full px-2.5 py-1 text-[10px] font-semibold ${additiveChip(additive.riskLevel)}`}
+              >
+                {additive.riskLabel.split(' · ')[0]}
+              </span>
+            </button>
+          ))}
+        </div>
       </section>
     </div>
   )
