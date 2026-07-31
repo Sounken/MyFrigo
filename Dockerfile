@@ -23,7 +23,9 @@ COPY package.json package-lock.json ./
 RUN npm ci --include=dev
 
 COPY . .
-RUN node ace build
+# Use the npm lifecycle so `prebuild` copies the ZXing WASM binary into
+# public/ before Adonis copies static assets to the production output.
+RUN npm run build
 
 # Runtime dependencies only, installed inside the build output so the native
 # modules are compiled against the very image that will run them.
