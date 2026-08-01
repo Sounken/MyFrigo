@@ -102,30 +102,27 @@ export default function InventoryPage({ items: initialItems, vapidPublicKey }: P
     }
   }, [undo])
 
-  const openProductPreview = useCallback(
-    async (barcode: string) => {
-      const requestId = ++previewRequest.current
-      setPreviewExpanded((current) => (previewBarcode ? current : true))
-      setPreviewBarcode(barcode)
-      setPreviewProduct(null)
-      setPreviewLoading(true)
-      try {
-        const payload = await api<{ product: ProductDetails }>(
-          `/api/products/${encodeURIComponent(barcode)}`
-        )
-        if (requestId !== previewRequest.current) return
-        setPreviewProduct(payload.product)
-      } catch {
-        if (requestId !== previewRequest.current) return
-        /** Keep the full page available if a preview request fails. */
-        router.visit(`/products/${encodeURIComponent(barcode)}`)
-        setPreviewBarcode(null)
-      } finally {
-        setPreviewLoading(false)
-      }
-    },
-    [previewBarcode]
-  )
+  const openProductPreview = useCallback(async (barcode: string) => {
+    const requestId = ++previewRequest.current
+    setPreviewExpanded(true)
+    setPreviewBarcode(barcode)
+    setPreviewProduct(null)
+    setPreviewLoading(true)
+    try {
+      const payload = await api<{ product: ProductDetails }>(
+        `/api/products/${encodeURIComponent(barcode)}`
+      )
+      if (requestId !== previewRequest.current) return
+      setPreviewProduct(payload.product)
+    } catch {
+      if (requestId !== previewRequest.current) return
+      /** Keep the full page available if a preview request fails. */
+      router.visit(`/products/${encodeURIComponent(barcode)}`)
+      setPreviewBarcode(null)
+    } finally {
+      setPreviewLoading(false)
+    }
+  }, [])
 
   const closeProductPreview = useCallback(() => {
     previewRequest.current += 1
