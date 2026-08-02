@@ -1,5 +1,13 @@
 import { Head, Link, router } from '@inertiajs/react'
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from 'react'
 import { motion } from 'motion/react'
 import AppShell, { LogoutButton } from '~/components/app_shell'
 import EditItemDialog from '~/components/edit_item_dialog'
@@ -49,6 +57,17 @@ export default function InventoryPage({ items: initialItems, vapidPublicKey }: P
   const [location, setLocation] = useState<'all' | ItemLocation>('all')
   const undoTimer = useRef<number | null>(null)
   const previewRequest = useRef(0)
+  const searchInputRef = useRef<HTMLInputElement>(null)
+
+  useLayoutEffect(() => {
+    const searchInput = searchInputRef.current
+    if (!searchInput) return
+
+    /** iOS can restore focus to the first input when reopening a PWA. */
+    searchInput.blur()
+    const frame = window.requestAnimationFrame(() => searchInput.blur())
+    return () => window.cancelAnimationFrame(frame)
+  }, [])
 
   const filteredItems = useMemo(() => {
     const needle = normalizeSearch(query)
@@ -175,10 +194,16 @@ export default function InventoryPage({ items: initialItems, vapidPublicKey }: P
                 ⌕
               </span>
               <input
+                ref={searchInputRef}
                 type="search"
+                name="inventory-search"
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
                 placeholder="Rechercher un produit"
+                autoComplete="off"
+                autoCorrect="off"
+                autoCapitalize="none"
+                spellCheck={false}
                 className="w-full rounded-xl border border-neutral-800 bg-neutral-900 py-2.5 pl-9 pr-3 outline-none focus:border-neutral-600"
               />
             </div>
